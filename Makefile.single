@@ -1,0 +1,300 @@
+# Makefile for building ComfyUI extras Docker images
+# Supports multiple components with timestamped tags
+
+# Default registry
+REGISTRY ?= docker.io
+IMAGE_NAME = yanwk/comfyui-extras
+
+# Build arguments with defaults
+MAX_JOBS ?= 1
+TORCH_CUDA_ARCH_LIST ?= 8.0;8.6;10.0
+
+# Current date for timestamped tags (format: YYYYMMDD)
+DATE := $(shell date +%Y%m%d)
+
+# Wheel output directory
+WHEELS_HOST_DIR = ./wheels/linux
+
+# Component definitions
+COMPONENTS = cumesh flexGEMM o_voxel
+# sageattn xformers fastvideo-kernel
+
+# Component directories mapping
+COMPONENT_DIRS = \
+	cumesh:3d/trellies/cumesh-py313-cu130-pt211 \
+	flexGEMM:3d/trellies/flexGEMM-py313-cu130-pt211 \
+	o_voxel:3d/trellies/o_voxel-py313-cu130-pt211 
+# 	sageattn:sageattn-py313-cu130-pt211 \
+# 	xformers:xformers-cu124 \
+# 	fastvideo-kernel:fastvideo-kernel-py313
+
+# Function to get component directory
+# 函数：获取组件对应的目录
+define get_component_dir
+$(strip $(patsubst $(1):%,%,$(filter $(1):%,$(COMPONENT_DIRS))))
+endef
+
+# Function to get component tag
+define get_component_tag
+$(shell basename "$(call get_component_dir,$(1))")
+endef
+
+.PHONY: help build-all push-all clean-all collect-all $(addprefix build-,$(COMPONENTS)) $(addprefix push-,$(COMPONENTS)) $(addprefix clean-,$(COMPONENTS)) $(addprefix collect-,$(COMPONENTS))
+
+help:
+	@echo "Makefile for ComfyUI Extras Docker Images"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make build-<component>     - Build specific component"
+	@echo "  make push-<component>      - Build and push specific component"
+	@echo "  make build-all             - Build all components"
+	@echo "  make push-all              - Build and push all components"
+	@echo "  make clean-<component>     - Remove specific component images"
+	@echo "  make clean-all             - Remove all component images"
+	@echo "  make collect-<component>   - Collect wheels from specific component images"
+	@echo "  make collect-all           - Collect wheels from all component images"
+	@echo "  make collect-list LIST=cumesh,o_voxel         - Collect wheels from specific components images"
+	@echo "  make collect-clean         - Clean wheels from all component images"
+	@echo ""
+	@echo "Available components: $(COMPONENTS)"
+	@echo ""
+	@echo "Variables:"
+	@echo "  REGISTRY=$(REGISTRY)"
+	@echo "  MAX_JOBS=$(MAX_JOBS)"
+	@echo "  TORCH_CUDA_ARCH_LIST=$(TORCH_CUDA_ARCH_LIST)"
+	@echo "  DATE=$(DATE)"
+	@echo "  HTTP_PROXY=$(HTTP_PROXY)"
+	@echo "  HTTPS_PROXY=$(HTTPS_PROXY)"
+	@echo "  NOPROXY=$(NOPROXY)"
+
+# Build all components
+build-all: $(addprefix build-,$(COMPONENTS))
+
+# Push all components
+push-all: $(addprefix push-,$(COMPONENTS))
+
+# Clean all components
+clean-all: $(addprefix clean-,$(COMPONENTS))
+
+# Collect all components wheels
+collect-all: $(addprefix collect-,$(COMPONENTS))
+
+# 规则模板
+define COMPONENT_TEMPLATE
+build-$(1):
+	@echo "------------------------------------------------"
+	@echo "Building component: $(1)..."
+	@COMPONENT_DIR="$(call get_component_dir,$(1))"; \
+	COMPONENT_TAG="$(call get_component_tag,$(1))"; \
+	if [ -z "$$$$COMPONENT_DIR" ]; then \
+		echo "Error: Component $(1) not found in COMPONENT_DIRS"; \
+		exit 1; \
+	fi; \
+	PROXY_ARGS=""; \
+	if [ ! -z "$$$$http_proxy" ]; then \
+		echo "Using http_proxy: $$$$http_proxy"; \
+		PROXY_ARGS="$$$$PROXY_ARGS --build-arg HTTP_PROXY=$$$$http_proxy"; \
+	elif [ ! -z "$$$$HTTP_PROXY" ]; then \
+		echo "Using HTTP_PROXY: $$$$HTTP_PROXY"; \
+		PROXY_ARGS="$$$$PROXY_ARGS --build-arg HTTP_PROXY=$$$$HTTP_PROXY"; \
+	fi; \
+	if [ ! -z "$$$$https_proxy" ]; then \
+		echo "Using HTTPS_PROXY: $$$$https_proxy"; \
+		PROXY_ARGS="$$$$PROXY_ARGS --build-arg HTTPS_PROXY=$$$$https_proxy"; \
+	elif [ ! -z "$$$$HTTPS_PROXY" ]; then \
+		echo "Using HTTPS_PROXY: $$$$HTTPS_PROXY"; \
+		PROXY_ARGS="$$$$PROXY_ARGS --build-arg HTTPS_PROXY=$$$$HTTPS_PROXY"; \
+	fi; \
+	if [ ! -z "$$$$no_proxy" ]; then \
+		PROXY_ARGS="$$$$PROXY_ARGS --build-arg NOPROXY=$$$$no_proxy"; \
+	elif [ ! -z "$$$$NOPROXY" ]; then \
+		PROXY_ARGS="$$$$PROXY_ARGS --build-arg NOPROXY=$$$$NO_PROXY"; \
+	fi; \
+	\
+	echo "Building tag: $$$$COMPONENT_TAG and $$$$COMPONENT_TAG-$(DATE)"; \
+	docker build \
+		$$$$PROXY_ARGS \
+		--build-arg REGISTRY=$(REGISTRY) \
+		--build-arg MAX_JOBS=$(MAX_JOBS) \
+		--build-arg TORCH_CUDA_ARCH_LIST='$(TORCH_CUDA_ARCH_LIST)' \
+		-t $(REGISTRY)/$(IMAGE_NAME):$$$$COMPONENT_TAG \
+		-t $(REGISTRY)/$(IMAGE_NAME):$$$$COMPONENT_TAG-$(DATE) \
+		$$$$COMPONENT_DIR
+
+
+
+# --- Push 规则 ---
+push-$(1): build-$(1)
+	@TAG="$(call get_component_tag,$(1))"; \
+	echo "Pushing $(1) component with tag: $$$$TAG..."; \
+	docker push $(REGISTRY)/$(IMAGE_NAME):$$$$TAG; \
+	docker push $(REGISTRY)/$(IMAGE_NAME):$$$$TAG-$(DATE)
+
+# --- Clean 规则 ---
+clean-$(1):
+	@TAG="$(call get_component_tag,$(1))"; \
+	echo "Cleaning $(1) component images (Tag: $$$$TAG)..."; \
+	docker rmi $(REGISTRY)/$(IMAGE_NAME):$$$$TAG 2>/dev/null || true; \
+	docker rmi $(REGISTRY)/$(IMAGE_NAME):$$$$TAG-$(DATE) 2>/dev/null || true; \
+	\
+	# 清理旧的时间戳镜像 \
+	# 注意：$$$$(...) 是为了在 eval 展开后保留为 shell 的 $(...) \
+	OLD_IMAGES=$$$$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "$(REGISTRY)/$(IMAGE_NAME):$$$$TAG-" | grep -v "-$(DATE)$$$$"); \
+	if [ ! -z "$$$$OLD_IMAGES" ]; then \
+		for img in $$$$OLD_IMAGES; do \
+			echo "Removing old image: $$$$img"; \
+			docker rmi $$$$img 2>/dev/null || true; \
+		done; \
+	fi
+
+# --- 单组件采集规则 ---
+# 拷贝wheel不能直接使用cp, cp默认没有开启通配符解析; 
+collect-$(1):
+	@TAG="$(call get_component_tag,$(1))"; \
+	IMAGE_BASE="$(IMAGE_NAME):$$$$TAG"; \
+	FULL_IMAGE="$(REGISTRY)/$$$$IMAGE_BASE"; \
+	mkdir -p $(WHEELS_HOST_DIR); \
+	if [ "$(REGISTRY)" = "docker.io" ]; then \
+		CHECK_IMAGE="$$$$IMAGE_BASE"; \
+	else \
+		CHECK_IMAGE="$$$$FULL_IMAGE"; \
+	fi; \
+	echo "Checking image: $$$$CHECK_IMAGE"; \
+	IMAGE_ID=$$$$(docker images -q $$$$CHECK_IMAGE); \
+	if [ -z "$$$$IMAGE_ID" ]; then \
+		echo "  [SKIP] Image $$$$CHECK_IMAGE not found locally."; \
+	else \
+		echo "  [OK] Image found ($$$$CHECK_IMAGE ->$$$$IMAGE_ID). Collecting wheels to host 	$$$$WHEELS_HOST_DIR..."; \
+		docker run --rm \
+			-v "$(WHEELS_HOST_DIR):/extras" \
+			"$$$$CHECK_IMAGE" \
+			sh -c 'cp -rv /wheels/*.whl /extras/'; \
+		echo "  [DONE] Collection for $(1) finished."; \
+	fi
+
+endef
+
+# Generate component targets
+$(foreach comp,$(COMPONENTS),$(eval $(call COMPONENT_TEMPLATE,$(comp))))
+
+# 构建所有组件
+# 依赖于所有具体的 build-xxx 目标，支持 -j 参数并行构建
+build-all: $(foreach comp,$(COMPONENTS),build-$(comp))
+	@echo "All components built successfully."
+
+# 使用方法: make build-list LIST=cumesh,o_voxel
+build-list:
+	@if [ -z "$(LIST)" ]; then \
+		echo "Error: Please specify components using LIST=comp1,comp2"; \
+		echo "Available: $(COMPONENTS)"; \
+		exit 1; \
+	fi; \
+	for comp in $$(echo $(LIST) | tr ',' ' '); do \
+		found=0; \
+		for available in $(COMPONENTS); do \
+			if [ "$$comp" = "$$available" ]; then found=1; break; fi; \
+		done; \
+		if [ "$$found" -eq 1 ]; then \
+			$(MAKE) build-$$comp; \
+		else \
+			echo "Error: Component '$$comp' not found in available list."; \
+			exit 1; \
+		fi; \
+	done
+
+# 清理所有组件镜像
+clean-all: $(foreach comp,$(COMPONENTS),clean-$(comp))
+	@echo "All local component images cleaned."
+
+# 使用方法: make clean-list LIST=cumesh,o_voxel
+clean-list:
+	@if [ -z "$(LIST)" ]; then \
+		echo "Error: Please specify components using LIST=comp1,comp2"; \
+		echo "Available: $(COMPONENTS)"; \
+		exit 1; \
+	fi; \
+	for comp in $$(echo $(LIST) | tr ',' ' '); do \
+		found=0; \
+		for available in $(COMPONENTS); do \
+			if [ "$$comp" = "$$available" ]; then found=1; break; fi; \
+		done; \
+		if [ "$$found" -eq 1 ]; then \
+			$(MAKE) build-$$comp; \
+		else \
+			echo "Error: Component '$$comp' not found in available list."; \
+			exit 1; \
+		fi; \
+	done
+
+# 推送所有组件镜像
+push-all: $(foreach comp,$(COMPONENTS),push-$(comp))
+	@echo "All local component images pushed."
+
+# 采集所有组件
+collect-all: $(foreach comp,$(COMPONENTS),collect-$(comp))
+	@echo "All enabled components' wheels have been collected：$(COMPONENTS)"
+
+
+collect-clean: 
+	rm -rf $(WHEELS_HOST_DIR)/*
+
+.PHONY: collect-some
+
+# 使用方法: make collect-list LIST=cumesh,o_voxel
+collect-list:
+	@if [ -z "$(LIST)" ]; then \
+		echo "Error: Please specify components using LIST=comp1,comp2"; \
+		echo "Available: $(COMPONENTS)"; \
+		exit 1; \
+	fi; \
+	for comp in $$(echo $(LIST) | tr ',' ' '); do \
+		found=0; \
+		for available in $(COMPONENTS); do \
+			if [ "$$comp" = "$$available" ]; then found=1; break; fi; \
+		done; \
+		if [ "$$found" -eq 1 ]; then \
+			$(MAKE) collect-$$comp; \
+		else \
+			echo "Error: Component '$$comp' not found in available list."; \
+			exit 1; \
+		fi; \
+	done
+
+
+# List available components
+list-components:
+	@echo "Available components: $()"
+	@$(foreach comp,$(COMPONENTS), \
+		echo "  $(comp) -> $(call get_component_dir,$(comp)) (tag: $(call get_component_tag,$(comp)))"; \
+	)
+
+status:
+	@echo "Current build status (Date: $(DATE)):"
+	@for comp in $(COMPONENTS); do \
+		TAG="$(call get_component_tag,$$comp)"; \
+		# 定义基础镜像名（不含 Registry） \
+		BASE_IMG="$(IMAGE_NAME):$$TAG"; \
+		# 定义带 Registry 的全名 \
+		FULL_IMG="$(REGISTRY)/$$BASE_IMG"; \
+		\
+		# 确定本地 docker images 实际显示的名称 \
+		if [ "$(REGISTRY)" = "docker.io" ]; then \
+			SEARCH_IMG="$$BASE_IMG"; \
+		else \
+			SEARCH_IMG="$$FULL_IMG"; \
+		fi; \
+		\
+		# 检查基础版本 (准确匹配行尾 $) \
+		if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^$$SEARCH_IMG$$"; then \
+			echo "  $$comp: ✓ Built ($$TAG)"; \
+		else \
+			echo "  $$comp: ✗ Not built"; \
+		fi; \
+		\
+		# 检查时间戳版本 \
+		if docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^$$SEARCH_IMG-$(DATE)$$"; then \
+			echo "        ✓ Timestamped ($$TAG-$(DATE))"; \
+		else \
+			echo "        ✗ No timestamped version"; \
+		fi; \
+	done
