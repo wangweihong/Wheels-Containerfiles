@@ -7,11 +7,15 @@
 ## 矩阵构建系统
 
 ### 支持的组件
+- [3d trellies依赖组件](https://github.com/visualbruno/ComfyUI-Trellis2/tree/main/wheels/Linux/Torch270)
+    - **cumesh** 
+    - **flexGEMM** 
+    - **o_voxel**
+- **sageattn** 
+    - sageattn-2.2.0
+    - sageattn3-1.0.0
+    - spas_sage_attn-0.1.0
 
-- **cumesh** - 3D网格处理库
-- **flexGEMM** - 灵活的GEMM实现
-- **o_voxel** - 体素处理库
-- **sageattn** - Sage注意力机制实现
 
 ### 支持的环境
 
@@ -19,17 +23,6 @@
 - **py312-cu128-pt29** - Python 3.12 + CUDA 12.8 + PyTorch 2.9
 - **py312-cu128-pt28** - Python 3.12 + CUDA 12.8 + PyTorch 2.8
 
-### 可用镜像
-
-* `yanwk/comfyui-extras:devel-cu121-py311`
-** CUDA devel
-
-* `yanwk/comfyui-extras:devel-torch`
-** CUDA devel + PyTorch
-** Used for compiling https://github.com/YanWenKun/ComfyUI-3D-Pack-LinuxWheels/releases/tag/v1
-
-* `yanwk/comfyui-extras:xformers-cu124`
-** xFormers' wheel files built for CUDA 12.4 + PyTorch Nightly
 
 ## Makefile 使用指南
 
@@ -80,7 +73,7 @@ make push-all
 make push-m-cumesh_py313-cu130-pt211
 ```
 
-#### 采集命令
+#### 从以构建好的组件镜像提取Wheels
 
 ```bash
 # 从所有镜像中采集wheel文件
