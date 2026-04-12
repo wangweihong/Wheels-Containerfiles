@@ -1,0 +1,226 @@
+# ComfyUI 容器构建系统
+
+## 项目概述
+
+本项目提供了一个**矩阵构建系统**，用于构建ComfyUI扩展组件的Docker镜像。支持多种CUDA加速的Python扩展组件在不同环境下的构建。
+
+## 矩阵构建系统
+
+### 支持的组件
+- [3d trellies依赖组件](https://github.com/visualbruno/ComfyUI-Trellis2/tree/main/wheels/Linux/Torch270)
+    - **cumesh** 
+    - **flexGEMM** 
+    - **o_voxel**
+- **sageattn** 
+    - sageattn-2.2.0
+    - sageattn3-1.0.0
+    - spas_sage_attn-0.1.0
+
+
+### 支持的环境
+
+- **py313-cu130-pt211** - Python 3.13 + CUDA 13.0 + PyTorch 2.11
+- **py312-cu128-pt29** - Python 3.12 + CUDA 12.8 + PyTorch 2.9
+- **py312-cu128-pt28** - Python 3.12 + CUDA 12.8 + PyTorch 2.8
+
+
+## Makefile 使用指南
+
+### 主要功能
+
+- **矩阵构建**：支持所有组件×环境的组合构建
+- **双标签构建**：每个镜像生成基础标签和时间戳标签
+- **批量操作**：支持按组件或环境批量构建
+- **代理支持**：自动检测并使用系统代理设置
+- **Wheel采集**：从构建的镜像中提取wheel文件
+- **智能清理**：自动清理构建的镜像
+
+### 命令示例
+
+#### 基本命令
+
+```bash
+# 查看帮助信息
+make help
+
+# 查看构建状态
+make status
+```
+
+#### 构建命令
+
+```bash
+# 构建所有组件-环境组合
+make build-all
+
+# 构建特定环境的所有组件
+make build-env-py313-cu130-pt211
+
+# 构建特定组件的所有环境
+make build-comp-cumesh
+
+# 构建特定组件-环境组合
+make build-m-cumesh_py313-cu130-pt211
+```
+
+#### 推送命令
+
+```bash
+# 推送所有构建的镜像
+make push-all
+
+# 推送特定组件-环境组合
+make push-m-cumesh_py313-cu130-pt211
+```
+
+#### 从以构建好的组件镜像提取Wheels
+
+```bash
+# 从所有镜像中采集wheel文件
+make collect-all
+
+# 从特定环境的所有组件中采集wheel文件
+make collect-env-py313-cu130-pt211
+
+# 从特定组件的所有环境中采集wheel文件
+make collect-comp-cumesh
+
+# 从特定组件-环境组合中采集wheel文件
+make collect-m-cumesh_py313-cu130-pt211
+```
+
+#### 清理命令
+
+```bash
+# 清理所有构建的镜像
+make clean-all
+
+# 清理特定组件-环境组合的镜像
+make clean-m-cumesh_py313-cu130-pt211
+```
+
+### 自定义构建参数
+
+可以通过环境变量自定义构建参数：
+
+```bash
+# 设置并行作业数（默认为1）
+export MAX_JOBS=4
+
+# 设置CUDA架构支持（默认为8.0;8.6;10.0）
+export TORCH_CUDA_ARCH_LIST='8.0;8.6;9.0;10.0'
+
+# 使用私有注册表（默认为docker.io）
+export REGISTRY=myregistry.example.com
+
+# 构建所有组件
+make build-all
+```
+
+### 代理支持
+
+在需要代理的环境下，系统会自动检测并使用以下环境变量：
+- `http_proxy` / `HTTP_PROXY`
+- `https_proxy` / `HTTPS_PROXY`
+- `no_proxy` / `NO_PROXY`
+
+### 组件目录结构
+
+| 组件名称 | 目录路径 |
+|---------|----------|
+| cumesh | `3d/trellies/cumesh-<环境>` |
+| flexGEMM | `3d/trellies/flexGEMM-<环境>` |
+| o_voxel | `3d/trellies/o_voxel-<环境>` |
+| sageattn | `accelerator/sageattn-<环境>` |
+
+### 镜像标签策略
+
+每个组件-环境组合构建时会生成两个镜像标签：
+
+1. **基础标签**：如 `cumesh-py313-cu130-pt211`
+2. **时间戳标签**：如 `cumesh-py313-cu130-pt211-20260412`
+
+这种策略便于版本管理和回滚操作。
+
+## 开发说明
+
+### 添加新组件
+
+要添加新的组件支持，需要：
+
+1. 在 `ALL_COMPONENTS` 变量中添加组件名称
+2. 在 `get_comp_root` 函数中添加组件的根目录映射
+3. 创建对应的目录结构和Dockerfile
+
+### 添加新环境
+
+要添加新的环境支持，需要：
+
+1. 在 `ALL_ENVS` 变量中添加环境名称
+2. 创建对应组件的环境目录和Dockerfile
+
+### 构建参数说明
+
+- `MAX_JOBS`：控制并行编译作业数，设置为1可避免在资源受限环境（如GitHub CI）中崩溃
+- `TORCH_CUDA_ARCH_LIST`：指定支持的CUDA计算架构，必须设置以避免PyTorch编译错误
+- `WHEELS_HOST_DIR`：wheel文件的输出目录（默认为 `./wheels/linux`）
+
+## 故障排除
+
+### 常见问题
+
+1. **构建失败**：检查网络连接和代理设置
+2. **内存不足**：降低 `MAX_JOBS` 值
+3. **CUDA架构错误**：确保 `TORCH_CUDA_ARCH_LIST` 包含正确的架构
+4. **目录不存在**：检查组件-环境组合的目录是否存在
+
+### 调试技巧
+
+```bash
+# 查看详细的构建日志
+make build-m-cumesh_py313-cu130-pt211 2>&1 | tee build.log
+
+# 检查Docker镜像
+docker images | grep comfyui-extras
+
+# 测试构建的镜像
+docker run --rm yanwk/comfyui-extras:cumesh-py313-cu130-pt211 ls -la /wheels
+
+# 查看wheel文件
+ls -la wheels/linux/
+```
+
+## 示例工作流
+
+### 构建并采集所有wheel文件
+
+```bash
+# 构建所有组件-环境组合
+make build-all
+
+# 采集所有wheel文件
+make collect-all
+
+# 查看采集的wheel文件
+ls -la wheels/linux/
+```
+
+### 构建特定组件的所有环境
+
+```bash
+# 构建sageattn的所有环境
+make build-comp-sageattn
+
+# 采集sageattn的所有wheel文件
+make collect-comp-sageattn
+```
+
+### 构建特定环境的所有组件
+
+```bash
+# 构建py313-cu130-pt211环境的所有组件
+make build-env-py313-cu130-pt211
+
+# 采集py313-cu130-pt211环境的所有wheel文件
+make collect-env-py313-cu130-pt211
+```
