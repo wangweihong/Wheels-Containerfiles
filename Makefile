@@ -22,7 +22,7 @@ WHEELS_HOST_DIR = ./wheels/linux
 # --- 1. 定义维度 ---
 
 # 所有组件
-ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattn nvdiffrec nvdiffrast
+ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattn nvdiffrec nvdiffrast fastvideo-kernel
 # 所有支持的环境版本
 ALL_ENVS = py313-cu130-pt211 py312-cu128-pt29 py312-cu128-pt28
 
@@ -32,7 +32,8 @@ define get_comp_root
 $(strip \
     $(if $(filter cumesh flexGEMM o_voxel nvdiffrec nvdiffrast,$(1)),3d/trellies/,\
     $(if $(filter sageattn,$(1)),accelerator/,\
-    ./)) \
+    $(if $(filter fastvideo-kernel,$(1)),fastvideo/,\
+    ./))) \
 )
 endef
 

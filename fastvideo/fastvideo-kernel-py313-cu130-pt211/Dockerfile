@@ -11,13 +11,17 @@ WORKDIR /WORK/wheels
 
 # Limit CPU/RAM usage during builds. Set to 1 to avoid crash on GitHub CI.
 ARG MAX_JOBS=2
-
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
 ################################################################################
 
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install uv build
 
-RUN git clone --depth=1 --no-tags --recurse-submodules --shallow-submodules \
+RUN ${HTTPS_PROXY:+git config --global https.proxy $HTTPS_PROXY} && \
+    ${HTTP_PROXY:+git config --global http.proxy $HTTP_PROXY} && \
+    git clone --depth=1 --no-tags --recurse-submodules --shallow-submodules \
 https://github.com/hao-ai-lab/FastVideo.git \
 /WORK/FastVideo
 
