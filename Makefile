@@ -21,7 +21,7 @@ WHEELS_HOST_DIR = ./wheels/linux
 # --- 1. 定义维度 ---
 
 # 所有组件
-ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattn
+ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattn nvdiffrec nvdiffrast
 # 所有支持的环境版本
 ALL_ENVS = py313-cu130-pt211 py312-cu128-pt29 py312-cu128-pt28
 
@@ -29,7 +29,7 @@ ALL_ENVS = py313-cu130-pt211 py312-cu128-pt29 py312-cu128-pt28
 # 格式: $(if $(filter 组件名,$(1)),路径)
 define get_comp_root
 $(strip \
-    $(if $(filter cumesh flexGEMM o_voxel,$(1)),3d/trellies/,\
+    $(if $(filter cumesh flexGEMM o_voxel nvdiffrec nvdiffrast,$(1)),3d/trellies/,\
     $(if $(filter sageattn,$(1)),accelerator/,\
     ./)) \
 )
@@ -105,6 +105,7 @@ build-m-$(1)_$(2):
 		fi; \
 		\
 		echo "Target Tags: $$$$TAG and $$$$TAG-$(DATE)"; \
+		echo "Proxy Args: $$$$PROXY_ARGS"; \
 		docker build \
 			$$$$PROXY_ARGS \
 			--build-arg REGISTRY=$(REGISTRY) \
@@ -181,3 +182,23 @@ status:
 			fi; \
 		done; \
 	done
+
+
+# 默认 Release 标题和说明（可以通过参数覆盖）
+TITLE ?= $(DATE)
+NOTES ?= Release built on $(DATE)
+
+.PHONY: release
+
+# 创建 GitHub Release
+## 需要先执行 gh auth login 来登录 GitHub
+release:
+	@echo "Checking for wheel files..."
+	@if [ -z "$$(ls $(WHEELS_HOST_DIR)/*.whl 2>/dev/null)" ]; then \
+		echo "Error: No .whl files found in $(WHEELS_HOST_DIR)."; \
+		exit 1; \
+	fi
+	@echo "Creating GitHub Release: $(DATE)..."
+	gh release create $(DATE) $(WHEELS_HOST_DIR)/*.whl \
+		--title "$(TITLE)" \
+		--notes "$(NOTES)"
