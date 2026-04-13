@@ -10,7 +10,8 @@ WHEELS_HOST_DIR = $(shell pwd)/wheels/linux
 
 # Build arguments with defaults
 MAX_JOBS ?= 1
-TORCH_CUDA_ARCH_LIST ?= 8.0;8.6;10.0
+## 12.0+PTX 表示支持5090兼容未来架构的中间代码
+TORCH_CUDA_ARCH_LIST ?= 8.0;8.6;10.0;12.0+PTX
 
 # Current date for timestamped tags (format: YYYYMMDD)
 DATE := $(shell date +%Y%m%d)
@@ -163,6 +164,10 @@ push-all: $(addprefix push-m-,$(MATRIX_COMBO))
 
 # 批量采集
 collect-all: $(addprefix collect-m-,$(MATRIX_COMBO))
+
+# 删除采集的 wheel 文件
+collect-clean: 
+	rm -rf $(WHEELS_HOST_DIR)/*
 
 # 批量清理
 clean-all: $(addprefix clean-m-,$(MATRIX_COMBO))

@@ -24,7 +24,7 @@ https://github.com/hao-ai-lab/FastVideo.git \
 # Fix for CMAKE missing package configuration file
 ENV CMAKE_PREFIX_PATH=/usr/local/lib64/python3.13/site-packages/torch/share/cmake
 ENV CUDACXX=$CUDA_HOME/bin/nvcc
-ARG TORCH_CUDA_ARCH_LIST='7.5;8.0;8.6;8.9;10.0'
+ARG TORCH_CUDA_ARCH_LIST='7.5;8.0;8.6;8.9;10.0;12.0+PTX'
 
 WORKDIR /WORK/FastVideo/fastvideo-kernel
 

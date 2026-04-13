@@ -20,7 +20,7 @@ ARG NO_PROXY
 # 1.020     arch_list[-1] += '+PTX'
 # 1.020     ~~~~~~~~~^^^^
 # 1.020 IndexError: list index out of range
-ARG TORCH_CUDA_ARCH_LIST='8.0;8.6;10.0'
+ARG TORCH_CUDA_ARCH_LIST='8.0;8.6;10.0;12.0'
 ################################################################################
 # Download repo and fix
 RUN git clone --depth=1 --no-tags --recurse-submodules --shallow-submodules \

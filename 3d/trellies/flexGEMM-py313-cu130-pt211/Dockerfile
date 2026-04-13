@@ -17,7 +17,7 @@ ARG MAX_JOBS=1
 # 1.020     arch_list[-1] += '+PTX'
 # 1.020     ~~~~~~~~~^^^^
 # 1.020 IndexError: list index out of range
-ARG TORCH_CUDA_ARCH_LIST='8.0;8.6;10.0'
+ARG TORCH_CUDA_ARCH_LIST='8.0;8.6;10.0;12.0+PTX'
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 ARG NO_PROXY

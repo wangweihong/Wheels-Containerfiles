@@ -20,12 +20,14 @@ ARG NO_PROXY
 # 1.020     arch_list[-1] += '+PTX'
 # 1.020     ~~~~~~~~~^^^^
 # 1.020 IndexError: list index out of range
-ARG TORCH_CUDA_ARCH_LIST='8.0;8.6;10.0'
+ARG TORCH_CUDA_ARCH_LIST='8.0;8.6;10.0;12.0+PTX'
 ################################################################################
 # Download repo and fix
 ## -depth=1 仅下载最新版本
 ## --single-branch 仅下载指定分支
-RUN git clone -b v0.4.0 --single-branch --depth=1 https://github.com/NVlabs/nvdiffrast.git  \
+RUN ${HTTPS_PROXY:+git config --global https.proxy $HTTPS_PROXY} && \
+    ${HTTP_PROXY:+git config --global http.proxy $HTTP_PROXY} && \
+    git clone -b v0.4.0 --single-branch --depth=1 https://github.com/NVlabs/nvdiffrast.git  \
 /WORK/nvdiffrast
 
 WORKDIR /WORK/nvdiffrast
