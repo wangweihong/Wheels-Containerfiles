@@ -22,9 +22,9 @@ WHEELS_HOST_DIR = ./wheels/linux
 # --- 1. 定义维度 ---
 
 # 所有组件
-ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattn nvdiffrec nvdiffrast fastvideo-kernel xformers audiotools
+ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattn nvdiffrec nvdiffrast fastvideo-kernel xformers audiotools mmcv
 # 所有支持的环境版本
-ALL_ENVS = py313-cu130-pt211 py312-cu128-pt29 py312-cu128-pt28
+ALL_ENVS = py313-cu130-pt211 py312-cu128-pt29 py312-cu128-pt28  py313-cu130-pt211-r2
 
 # 自动推导组件的根目录 (根据组件名返回其父路径)
 # 格式: $(if $(filter 组件名,$(1)),路径)
@@ -35,7 +35,8 @@ $(strip \
     $(if $(filter fastvideo-kernel,$(1)),fastvideo/,\
     $(if $(filter xformers,$(1)),accelerator/,\
 	$(if $(filter audiotools,$(1)),tts/,\
-    ./))))) \
+	$(if $(filter mmcv,$(1)),sdpose/,\
+    ./)))))) \
 )
 endef
 
