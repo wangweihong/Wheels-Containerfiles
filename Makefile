@@ -22,7 +22,7 @@ WHEELS_HOST_DIR = ./wheels/linux
 # --- 1. 定义维度 ---
 
 # 所有组件
-ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattn nvdiffrec nvdiffrast fastvideo-kernel xformers audiotools mmcv
+ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattn nvdiffrec nvdiffrast fastvideo-kernel xformers audiotools mmcv pytorch3d
 # 所有支持的环境版本
 ALL_ENVS = py313-cu130-pt211 py312-cu128-pt29 py312-cu128-pt28  py313-cu130-pt211-r2
 
@@ -36,7 +36,8 @@ $(strip \
     $(if $(filter xformers,$(1)),accelerator/,\
 	$(if $(filter audiotools,$(1)),tts/,\
 	$(if $(filter mmcv,$(1)),sdpose/,\
-    ./)))))) \
+	$(if $(filter pytorch3d,$(1)),3d/lito/,\
+    ./))))))) \
 )
 endef
 
