@@ -60,7 +60,10 @@ make build-env-py313-cu130-pt211
 make build-comp-cumesh
 
 # 构建特定组件-环境组合
-make build-m-cumesh_py313-cu130-pt211
+make build-m-cumesh_py313-cu130-pt211'
+
+# 构建特定组件单独的环境组合
+make build-c-sageattn@py313-cu130-pt211-fix-headdim256
 ```
 
 #### 推送命令
