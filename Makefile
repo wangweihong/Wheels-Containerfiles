@@ -44,8 +44,8 @@ endef
 
 # --- 2. 伪目标声明 ---
 
-# 动态生成所有可能的组合目标名
-MATRIX_COMBO = $(foreach c,$(ALL_COMPONENTS),$(foreach e,$(ALL_ENVS),$(c)_$(e)))
+# 动态生成所有可能的组合目标名（分隔符改为@）
+MATRIX_COMBO = $(foreach c,$(ALL_COMPONENTS),$(foreach e,$(ALL_ENVS),$(c)@$(e)))
 
 .PHONY: help build-all collect-all clean-all status \
         $(addprefix build-env-,$(ALL_ENVS)) \
@@ -58,14 +58,12 @@ help:
 	@echo "  make build-all             - Build everything (Matrix)"
 	@echo "  make build-env-py313...    - Build all components for one env"
 	@echo "  make build-comp-cumesh     - Build one component for all envs"
-	@echo "  make build-m-cumesh_py313  - Build specific component-env combo"
+	@echo "  make build-m-cumesh@py313  - Build specific component-env combo"
 
 	@echo "  make collect-all             - Collect everything (Matrix)"
 	@echo "  make collect-env-py313...    - Collect all components for one env"
 	@echo "  make collect-comp-cumesh..     - Collect one component for all envs"
-	@echo "  make collect-m-cumesh_py313..  - Collect specific component-env combo"
-
-
+	@echo "  make collect-m-cumesh@py313..  - Collect specific component-env combo"
 
 	@echo "  make status                - Show what is built locally"
 	@echo ""
@@ -80,9 +78,8 @@ define MATRIX_TEMPLATE
 $(1)_$(2)_DIR  := $$(call get_comp_root,$(1))$(1)-$(2)
 $(1)_$(2)_TAG  := $(1)-$(2)
 
-# 构建目标
-# 参数 $(1): 组件名, $(2): 环境名
-build-m-$(1)_$(2):
+# 构建目标 (分隔符改为@)
+build-m-$(1)@$(2):
 	@DIR="$$($(1)_$(2)_DIR)"; \
 	TAG="$$($(1)_$(2)_TAG)"; \
 	if [ ! -d "$$$$DIR" ]; then \
@@ -125,25 +122,30 @@ build-m-$(1)_$(2):
 	fi
 
 # 推送目标
-push-m-$(1)_$(2):
+push-m-$(1)@$(2):
 	@TAG=$$($(1)_$(2)_TAG); \
 	docker push $(REGISTRY)/$(IMAGE_NAME):$$$$TAG; \
 	docker push $(REGISTRY)/$(IMAGE_NAME):$$$$TAG-$(DATE)
 
-# 采集目标
-collect-m-$(1)_$(2):
+# 采集目标 (wheel 保存到 组件/环境 子目录下)
+# sageattn/
+# ├── py313-cu130-pt211/
+# ├── py313-cu130-pt211-fix-headdim256/
+# ├── py313-cu130-pt211-fix-sm120/
+# └── py313-cu130-pt211-fix-blackwell/
+collect-m-$(1)@$(2):
 	@TAG=$$($(1)_$(2)_TAG); \
 	if [ "$(REGISTRY)" = "docker.io" ]; then IMG="$(IMAGE_NAME):$$$$TAG"; else IMG="$(REGISTRY)/$(IMAGE_NAME):$$$$TAG"; fi; \
 	if [ -z "$$$$(docker images -q $$$$IMG)" ]; then \
 		echo "  [SKIP] Image $$$$IMG not found."; \
 	else \
-		echo "  [OK] Collecting from $$$$IMG..."; \
-		mkdir -p $(WHEELS_HOST_DIR); \
-		docker run --rm -v "$(WHEELS_HOST_DIR):/extras" $$$$IMG sh -c 'cp -rv /wheels/*.whl /extras/ 2>/dev/null || true'; \
+		echo "  [OK] Collecting from $$$$IMG into $(1)/$(2)/..."; \
+		mkdir -p "$(WHEELS_HOST_DIR)/$(1)/$(2)"; \
+		docker run --rm -v "$(WHEELS_HOST_DIR)/$(1)/$(2):/extras" $$$$IMG sh -c 'cp -rv /wheels/*.whl /extras/ 2>/dev/null || true'; \
 	fi
 
 # 清理目标
-clean-m-$(1)_$(2):
+clean-m-$(1)@$(2):
 	@TAG=$$($(1)_$(2)_TAG); \
 	docker rmi $(REGISTRY)/$(IMAGE_NAME):$$$$TAG 2>/dev/null || true; \
 	docker rmi $(REGISTRY)/$(IMAGE_NAME):$$$$TAG-$(DATE) 2>/dev/null || true
@@ -160,11 +162,11 @@ build-all: $(addprefix build-m-,$(MATRIX_COMBO))
 
 # 按环境构建 (例如: make build-env-py313-cu130-pt211)
 build-env-%:
-	@$(MAKE) $(addprefix build-m-,$(foreach c,$(ALL_COMPONENTS),$(c)_$*))
+	@$(MAKE) $(addprefix build-m-,$(foreach c,$(ALL_COMPONENTS),$(c)@$*))
 
 # 按组件构建 (例如: make build-comp-cumesh)
 build-comp-%:
-	@$(MAKE) $(addprefix build-m-,$(foreach e,$(ALL_ENVS),$*_$(e)))
+	@$(MAKE) $(addprefix build-m-,$(foreach e,$(ALL_ENVS),$*@$(e)))
 
 # 批量推送
 push-all: $(addprefix push-m-,$(MATRIX_COMBO))
@@ -288,25 +290,6 @@ build-c-%:
 			"$$DIR"; \
 	fi
 
-# 采集目标
-collect-c-%:
-	@TAG=$$($(1)_$(2)_TAG); \
-	if [ "$(REGISTRY)" = "docker.io" ]; then IMG="$(IMAGE_NAME):$$$$TAG"; else IMG="$(REGISTRY)/$(IMAGE_NAME):$$$$TAG"; fi; \
-	if [ -z "$$$$(docker images -q $$$$IMG)" ]; then \
-		echo "  [SKIP] Image $$$$IMG not found."; \
-	else \
-		echo "  [OK] Collecting from $$$$IMG..."; \
-		mkdir -p $(WHEELS_HOST_DIR); \
-		docker run --rm -v "$(WHEELS_HOST_DIR):/extras" $$$$IMG sh -c 'cp -rv /wheels/*.whl /extras/ 2>/dev/null || true'; \
-	fi
-
-# 清理目标
-clean-m-$(1)_$(2):
-	@TAG=$$($(1)_$(2)_TAG); \
-	docker rmi $(REGISTRY)/$(IMAGE_NAME):$$$$TAG 2>/dev/null || true; \
-	docker rmi $(REGISTRY)/$(IMAGE_NAME):$$$$TAG-$(DATE) 2>/dev/null || true
-
-
 # 2. 单项采集规则
 # 支持：make collect-c-sageattn@py313-cu130-pt211-fix-headdim256
 collect-c-%:
@@ -318,8 +301,8 @@ collect-c-%:
 		echo "  [SKIP] Image $$IMG not found."; \
 	else \
 		echo "  [OK] Collecting from custom image $$IMG..."; \
-		mkdir -p $(WHEELS_HOST_DIR); \
-		docker run --rm -v "$(WHEELS_HOST_DIR):/extras" $$IMG sh -c 'cp -rv /wheels/*.whl /extras/ 2>/dev/null || true'; \
+		mkdir -p "$(WHEELS_HOST_DIR)/$${COMP}/$${ENV}"; \
+		docker run --rm -v "$(WHEELS_HOST_DIR)/$${COMP}/$${ENV}:/extras" $$IMG sh -c 'cp -rv /wheels/*.whl /extras/ 2>/dev/null || true'; \
 	fi
 
 # 3. 单项清理规则

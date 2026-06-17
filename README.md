@@ -60,7 +60,7 @@ make build-env-py313-cu130-pt211
 make build-comp-cumesh
 
 # 构建特定组件-环境组合
-make build-m-cumesh_py313-cu130-pt211'
+make build-m-cumesh@py313-cu130-pt211
 
 # 构建特定组件单独的环境组合
 make build-c-sageattn@py313-cu130-pt211-fix-headdim256
@@ -73,7 +73,7 @@ make build-c-sageattn@py313-cu130-pt211-fix-headdim256
 make push-all
 
 # 推送特定组件-环境组合
-make push-m-cumesh_py313-cu130-pt211
+make push-m-cumesh@py313-cu130-pt211
 ```
 
 #### 从以构建好的组件镜像提取Wheels
@@ -89,7 +89,10 @@ make collect-env-py313-cu130-pt211
 make collect-comp-cumesh
 
 # 从特定组件-环境组合中采集wheel文件
-make collect-m-cumesh_py313-cu130-pt211
+make collect-m-cumesh@py313-cu130-pt211
+
+# 特定组件-环境组合中采集wheel文件
+make build-c-sageattn@py313-cu130-pt211-fix-headdim256
 ```
 
 #### 清理命令
@@ -99,7 +102,7 @@ make collect-m-cumesh_py313-cu130-pt211
 make clean-all
 
 # 清理特定组件-环境组合的镜像
-make clean-m-cumesh_py313-cu130-pt211
+make clean-m-cumesh@py313-cu130-pt211
 ```
 
 ### 自定义构建参数
@@ -182,7 +185,7 @@ make build-all
 
 ```bash
 # 查看详细的构建日志
-make build-m-cumesh_py313-cu130-pt211 2>&1 | tee build.log
+make build-m-cumesh@py313-cu130-pt211 2>&1 | tee build.log
 
 # 检查Docker镜像
 docker images | grep comfyui-extras
