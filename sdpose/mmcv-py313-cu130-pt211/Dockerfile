@@ -23,6 +23,9 @@ ARG HTTPS_PROXY
 ARG NO_PROXY
 
 ###################################################sou#############################
+# 在这一行之后,通过参数修改CACHEBUST的值触发重建来决定是否缓存,避免缓存过期
+ARG CACHEBUST=1
+
 # Download repo and fix
 RUN git clone -b v2.1.0 --depth=1 --no-tags --recurse-submodules --shallow-submodules \
 https://github.com/open-mmlab/mmcv.git \

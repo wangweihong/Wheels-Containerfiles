@@ -18,7 +18,8 @@ DATE := $(shell date +%Y%m%d)
 
 # Wheel output directory
 WHEELS_HOST_DIR = ./wheels/linux
-
+# 在这一行之后,通过参数修改CACHEBUST的值触发重建来决定是否缓存,避免缓存过期（git代码)
+CACHEBUST = 1
 # --- 1. 定义维度 ---
 
 # 所有组件
@@ -117,6 +118,7 @@ build-m-$(1)_$(2):
 			--build-arg REGISTRY=$(REGISTRY) \
 			--build-arg MAX_JOBS=$(MAX_JOBS) \
 			--build-arg TORCH_CUDA_ARCH_LIST='$(TORCH_CUDA_ARCH_LIST)' \
+			--build-arg CACHEBUST=$(CACHEBUST) \
 			-t $(REGISTRY)/$(IMAGE_NAME):$$$$TAG \
 			-t $(REGISTRY)/$(IMAGE_NAME):$$$$TAG-$(DATE) \
 			"$$$$DIR"; \

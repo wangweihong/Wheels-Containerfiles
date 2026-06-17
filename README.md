@@ -164,6 +164,7 @@ make build-all
 - `MAX_JOBS`：控制并行编译作业数，设置为1可避免在资源受限环境（如GitHub CI）中崩溃
 - `TORCH_CUDA_ARCH_LIST`：指定支持的CUDA计算架构，必须设置以避免PyTorch编译错误
 - `WHEELS_HOST_DIR`：wheel文件的输出目录（默认为 `./wheels/linux`）
+- `CACHEBUST`：用于触发Docker重新构建git缓存的参数，默认值为1. 设置为其他值后会强制重新拉取代码进行构建，避免缓存导致代码过期问题
 
 ## 故障排除
 

@@ -17,6 +17,9 @@ ARG HTTP_PROXY
 ARG HTTPS_PROXY
 ARG NO_PROXY
 ################################################################################ 
+# 在这一行之后,通过参数修改CACHEBUST的值触发重建来决定是否缓存,避免缓存过期
+ARG CACHEBUST=1
+
 # Download repo and fix
 RUN  ${HTTPS_PROXY:+git config --global https.proxy $HTTPS_PROXY} && \
     ${HTTP_PROXY:+git config --global http.proxy $HTTP_PROXY} && \

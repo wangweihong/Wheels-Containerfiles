@@ -17,6 +17,9 @@ FROM docker.io/yanwk/comfyui-boot:cu124 AS buildingStage
 RUN set -eu \
     && mkdir -p /WORK/wheels
 
+# 在这一行之后,通过参数修改CACHEBUST的值触发重建来决定是否缓存,避免缓存过期
+ARG CACHEBUST=1
+
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --break-system-packages \
         -r https://raw.githubusercontent.com/facebookresearch/xformers/main/requirements.txt

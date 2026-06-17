@@ -14,6 +14,9 @@ RUN set -eu \
 ARG MAX_JOBS=1
 
 ################################################################################
+# 在这一行之后,通过参数修改CACHEBUST的值触发重建来决定是否缓存,避免缓存过期
+ARG CACHEBUST=1
+
 # Download repo and fix
 RUN git clone --depth=1 --no-tags --recurse-submodules --shallow-submodules \
 https://github.com/thu-ml/SageAttention.git \
