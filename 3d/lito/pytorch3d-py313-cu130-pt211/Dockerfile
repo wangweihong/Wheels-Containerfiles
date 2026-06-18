@@ -23,18 +23,41 @@ ARG HTTPS_PROXY
 ARG NO_PROXY
 
 ###################################################sou#############################
+# ==============================================================================
+# 新增：从 meta.yaml 映射进来的构建参数（提供默认值以防手动构建时报错）
+# ==============================================================================
+ARG UPSTREAM_REPO="https://github.com/facebookresearch/pytorch3d"
+ARG UPSTREAM_BRANCH="main"
+ARG UPSTREAM_COMMIT="7f8a8a1"
+ARG CUDA_VERSION="cu130"
+ARG TORCH_VERSION="pt211"
+ARG VIRIANT="standard"
+# docker build cache id, 避免缓存冲突
+ARG CACHE_KEY="pytorch3d-py313-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
+
 # Download repo and fix
-RUN git clone --depth=1 --no-tags --recurse-submodules --shallow-submodules \
-https://github.com/facebookresearch/pytorch3d.git \
+RUN ${HTTPS_PROXY:+git config --global https.proxy $HTTPS_PROXY} && \
+    ${HTTP_PROXY:+git config --global http.proxy $HTTP_PROXY} && \
+    git clone --single-branch --branch ${UPSTREAM_BRANCH} --recurse-submodules\
+    ${UPSTREAM_REPO} \
 /WORK/pytorch3d
 
 WORKDIR /WORK/pytorch3d/
 
+RUN git checkout ${UPSTREAM_COMMIT}
     
 RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=cache,target=/WORK/pytorch3d/build \
-    --mount=type=cache,target=/WORK/pytorch3d/dist \
-    python3.13 setup.py bdist_wheel -d /WORK/wheels
+    --mount=type=cache,id=${CACHE_KEY}-build,target=/WORK/pytorch3d/build \
+    --mount=type=cache,id=${CACHE_KEY}-dist,target=/WORK/pytorch3d/dist \
+    python3.13 setup.py bdist_wheel -d /WORK/wheels 
+
+RUN set -eu \
+    && BUILD_SHA=$(git rev-parse --short=7 HEAD) \
+    && cd /WORK/wheels \
+    && for f in *.whl; do \
+         PREFIX=${f%%-cp313*} \
+         && mv "$f" "${PREFIX}-${VIRIANT}+git.${UPSTREAM_BRANCH}.${BUILD_SHA}-py313-${CUDA_VERSION}-${TORCH_VERSION}-linux_x86_64.whl"; \
+       done
 
 
 ################################################################################

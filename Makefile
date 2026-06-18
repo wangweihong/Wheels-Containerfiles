@@ -17,28 +17,28 @@ TORCH_CUDA_ARCH_LIST ?= 8.0;8.6;10.0;12.0;12.0+PTX
 DATE := $(shell date +%Y%m%d)
 
 # Wheel output directory
-WHEELS_HOST_DIR = ./wheels/linux
-# 在这一行之后,通过参数修改CACHEBUST的值触发重建来决定是否缓存,避免缓存过期（git代码)
-CACHEBUST = 1
+WHEELS_HOST_DIR = ./_wheels/linux
 # --- 1. 定义维度 ---
 
 # 所有组件
-ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattn nvdiffrec nvdiffrast fastvideo-kernel xformers audiotools mmcv pytorch3d
+ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattention sageattn3 spargeattn nvdiffrec nvdiffrast fastvideo-kernel xformers audiotools mmcv pytorch3d
 # 所有支持的环境版本
-ALL_ENVS = py313-cu130-pt211 py312-cu128-pt29 py312-cu128-pt28  py313-cu130-pt211-r2 
+ALL_ENVS = py313-cu130-pt211 py312-cu128-pt29 py312-cu128-pt28  py313-cu130-pt211-r2 py313-cu130-pt211-fix-headdim256
 
 # 自动推导组件的根目录 (根据组件名返回其父路径)
 # 格式: $(if $(filter 组件名,$(1)),路径)
 define get_comp_root
 $(strip \
     $(if $(filter cumesh flexGEMM o_voxel nvdiffrec nvdiffrast,$(1)),3d/trellies/,\
-    $(if $(filter sageattn,$(1)),accelerator/,\
+    $(if $(filter sageattention,$(1)),accelerator/sageattention/,\
+    $(if $(filter sageattn3,$(1)),accelerator/sageattn3/,\
+    $(if $(filter spargeattn,$(1)),accelerator/spargeattn/,\
     $(if $(filter fastvideo-kernel,$(1)),fastvideo/,\
-    $(if $(filter xformers,$(1)),accelerator/,\
+    $(if $(filter xformers,$(1)),accelerator/xformers/,\
 	$(if $(filter audiotools,$(1)),tts/,\
 	$(if $(filter mmcv,$(1)),sdpose/,\
 	$(if $(filter pytorch3d,$(1)),3d/lito/,\
-    ./))))))) \
+    ./))))))))) \
 )
 endef
 
@@ -115,7 +115,6 @@ build-m-$(1)@$(2):
 			--build-arg REGISTRY=$(REGISTRY) \
 			--build-arg MAX_JOBS=$(MAX_JOBS) \
 			--build-arg TORCH_CUDA_ARCH_LIST='$(TORCH_CUDA_ARCH_LIST)' \
-			--build-arg CACHEBUST=$(CACHEBUST) \
 			-t $(REGISTRY)/$(IMAGE_NAME):$$$$TAG \
 			-t $(REGISTRY)/$(IMAGE_NAME):$$$$TAG-$(DATE) \
 			"$$$$DIR"; \
@@ -284,7 +283,6 @@ build-c-%:
 			--build-arg REGISTRY=$(REGISTRY) \
 			--build-arg MAX_JOBS=$(MAX_JOBS) \
 			--build-arg TORCH_CUDA_ARCH_LIST='$(TORCH_CUDA_ARCH_LIST)' \
-			--build-arg CACHEBUST=$(CACHEBUST) \
 			-t $(REGISTRY)/$(IMAGE_NAME):$$TAG \
 			-t $(REGISTRY)/$(IMAGE_NAME):$$TAG-$(DATE) \
 			"$$DIR"; \

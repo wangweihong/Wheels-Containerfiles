@@ -10,29 +10,36 @@ FROM ${REGISTRY}/yanwk/comfyui-boot:base-cu130-pt211-cache AS buildingStage
 WORKDIR /WORK/wheels
 
 # Limit CPU/RAM usage during builds. Set to 1 to avoid crash on GitHub CI.
-ARG MAX_JOBS=2
-
+ARG MAX_JOBS=1
+ARG TORCH_CUDA_ARCH_LIST='8.0;8.6;10.0;12.0+PTX'
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
 ARG BUILD_BUNDLE_PTXAS=1
+
 
 RUN pip install build "wheel<0.44" "packaging<24"
 
 ################################################################################
 # Download repo and fix
-RUN pip install pybind11
-# 在这一行之后,通过参数修改CACHEBUST的值触发重建来决定是否缓存,避免缓存过期
-ARG CACHEBUST=1
+ARG UPSTREAM_REPO="https://github.com/thu-ml/SageAttention"
+ARG UPSTREAM_BRANCH="main"
+ARG UPSTREAM_COMMIT="d1a57a5"
+ARG CUDA_VERSION="cu130"
+ARG TORCH_VERSION="pt211"
+ARG VIRIANT="r2"
+# docker build cache id, 避免缓存冲突
+ARG CACHE_KEY="sageattn3-py313-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
 
-# RUN git clone --depth=1 --no-tags --recurse-submodules --shallow-submodules \
-# https://github.com/thu-ml/SageAttention.git \
-# /WORK/SageAttention
-
-
-# 修复了ideogram4 headdim 256问题
-# https://github.com/woct0rdho/SageAttention/issues/93
-RUN git clone --depth=1 --no-tags --recurse-submodules --shallow-submodules -b head_dim_256 \
-https://github.com/woct0rdho/SageAttention.git \
+RUN ${HTTPS_PROXY:+git config --global https.proxy $HTTPS_PROXY} && \
+    ${HTTP_PROXY:+git config --global http.proxy $HTTP_PROXY} && \
+    git clone --single-branch --branch ${UPSTREAM_BRANCH} --recurse-submodules\
+    ${UPSTREAM_REPO} \
 /WORK/SageAttention
 
+WORKDIR /WORK/SageAttention
+# 切换到 meta.yaml 指定的精准分支、Tag 或 Commit SHA
+RUN git checkout ${UPSTREAM_COMMIT}
 
 WORKDIR /WORK/SageAttention/sageattention3_blackwell
 
@@ -42,30 +49,23 @@ RUN sed -i \
 setup.py
 
 ################################################################################
-# SageAttention
-
-# TORCH_CUDA_ARCH_LIST can only contain architectures supported by both PyTorch and SageAttention.
-# Check before set:
-# https://github.com/pytorch/pytorch/blob/v2.11.0/.ci/manywheel/build_cuda.sh
-# https://github.com/thu-ml/SageAttention/blob/main/setup.py
-# Or check in Python:
-# python3.13 -c 'import torch; print(torch._C._cuda_getArchFlags())'
-
-ARG TORCH_CUDA_ARCH_LIST='12.0;12.0+PTX'
-
-WORKDIR /WORK/SageAttention
-
-RUN python3.13 -m build --wheel --no-isolation --outdir /WORK/wheels .
-
-################################################################################
 # SageAttention 3 (Blackwell only)
 # https://github.com/thu-ml/SageAttention/blob/main/sageattention3_blackwell/setup.py
 
-ARG TORCH_CUDA_ARCH_LIST='12.0;12.0+PTX'
-
 WORKDIR /WORK/SageAttention/sageattention3_blackwell
 
-RUN python3.13 -m build --wheel --no-isolation  --verbose --outdir /WORK/wheels .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=cache,id=${CACHE_KEY}-build,target=/WORK/SageAttention/sageattention3_blackwell/build \
+    --mount=type=cache,id=${CACHE_KEY}-dist,target=/WORK/SageAttention/sageattention3_blackwell/dist \
+    python3.13 -m build --wheel --no-isolation --outdir /WORK/wheels .
+
+RUN set -eu \
+    && BUILD_SHA=$(git rev-parse --short=7 HEAD) \
+    && cd /WORK/wheels \
+    && for f in *.whl; do \
+         PREFIX=${f%%-cp313*} \
+         && mv "$f" "${PREFIX}-${VIRIANT}+git.${UPSTREAM_BRANCH}.${BUILD_SHA}-py313-${CUDA_VERSION}-${TORCH_VERSION}-linux_x86_64.whl"; \
+       done
 
 ################################################################################
 # Save the result
