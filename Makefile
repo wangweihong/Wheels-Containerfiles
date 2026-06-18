@@ -4,8 +4,7 @@
 
 REGISTRY ?= docker.io
 IMAGE_NAME = yanwk/comfyui-extras
-DATE := $(shell date +%Y%m%d)
-WHEELS_HOST_DIR = $(shell pwd)/wheels/linux
+WHEELS_HOST_DIR = $(shell pwd)/_wheels/linux
 
 
 # Build arguments with defaults
@@ -13,11 +12,30 @@ MAX_JOBS ?= 1
 ## 12.0+PTX 表示支持5090兼容未来架构的中间代码
 TORCH_CUDA_ARCH_LIST ?= 8.0;8.6;10.0;12.0;12.0+PTX
 
-# Current date for timestamped tags (format: YYYYMMDD)
-DATE := $(shell date +%Y%m%d)
+# ==============================================================================
+# yq 依赖检查与预警机制
+# ==============================================================================
+CHECK_YQ := $(shell command -v yq 2>/dev/null)
 
-# Wheel output directory
-WHEELS_HOST_DIR = ./_wheels/linux
+.PHONY: check-yq-dependency
+
+check-yq-dependency:
+ifndef CHECK_YQ
+	@echo "========================================================================"
+	@echo "⚠️  [WARNING] 'yq' command not found! "
+	@echo "   This repository uses 'meta.yaml' to track upstream commits and variants."
+	@echo "   Without 'yq', matrix builds will skip metadata injection."
+	@echo "========================================================================"
+	@echo "💡 To install 'yq', run the following command:"
+	@echo "   Linux (AMD64):"
+	@echo "     sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq"
+	@echo "   macOS (Homebrew):"
+	@echo "     brew install yq"
+	@echo "========================================================================"
+	@echo ""
+	@exit 1
+endif
+
 # --- 1. 定义维度 ---
 
 # 所有组件
@@ -46,22 +64,18 @@ endef
 
 # 动态生成所有可能的组合目标名（分隔符改为@）
 MATRIX_COMBO = $(foreach c,$(ALL_COMPONENTS),$(foreach e,$(ALL_ENVS),$(c)@$(e)))
-
-.PHONY: help build-all collect-all clean-all status \
-        $(addprefix build-env-,$(ALL_ENVS)) \
-        $(addprefix build-comp-,$(ALL_COMPONENTS))
+.PHONY: build-comp-% release-comp-% collect-comp-%
+.PHONY: help build-all collect-all clean-all release-all
 
 # --- 3. 帮助信息 ---
 
 help:
 	@echo "Usage Examples:"
 	@echo "  make build-all             - Build everything (Matrix)"
-	@echo "  make build-env-py313...    - Build all components for one env"
 	@echo "  make build-comp-cumesh     - Build one component for all envs"
 	@echo "  make build-m-cumesh@py313  - Build specific component-env combo"
 
 	@echo "  make collect-all             - Collect everything (Matrix)"
-	@echo "  make collect-env-py313...    - Collect all components for one env"
 	@echo "  make collect-comp-cumesh..     - Collect one component for all envs"
 	@echo "  make collect-m-cumesh@py313..  - Collect specific component-env combo"
 
@@ -79,46 +93,43 @@ $(1)_$(2)_DIR  := $$(call get_comp_root,$(1))$(1)-$(2)
 $(1)_$(2)_TAG  := $(1)-$(2)
 
 # 构建目标 (分隔符改为@)
-build-m-$(1)@$(2):
+build-m-$(1)@$(2): check-yq-dependency
 	@DIR="$$($(1)_$(2)_DIR)"; \
 	TAG="$$($(1)_$(2)_TAG)"; \
 	if [ ! -d "$$$$DIR" ]; then \
 		echo "  [SKIP] Directory $$$$DIR not found. Skipping."; \
-	else \
-		echo "------------------------------------------------"; \
-		echo "BUILDING COMPONENT: $(1) | ENV: $(2)"; \
-		PROXY_ARGS=""; \
-		if [ -n "$$$$http_proxy" ]; then \
-			echo "Using http_proxy: $$$$http_proxy"; \
-			PROXY_ARGS="$$$$PROXY_ARGS --build-arg HTTP_PROXY=$$$$http_proxy"; \
-		elif [ -n "$$$$HTTP_PROXY" ]; then \
-			echo "Using HTTP_PROXY: $$$$HTTP_PROXY"; \
-			PROXY_ARGS="$$$$PROXY_ARGS --build-arg HTTP_PROXY=$$$$HTTP_PROXY"; \
-		fi; \
-		if [ -n "$$$$https_proxy" ]; then \
-			echo "Using https_proxy: $$$$https_proxy"; \
-			PROXY_ARGS="$$$$PROXY_ARGS --build-arg HTTPS_PROXY=$$$$https_proxy"; \
-		elif [ -n "$$$$HTTPS_PROXY" ]; then \
-			echo "Using HTTPS_PROXY: $$$$HTTPS_PROXY"; \
-			PROXY_ARGS="$$$$PROXY_ARGS --build-arg HTTPS_PROXY=$$$$HTTPS_PROXY"; \
-		fi; \
-		if [ -n "$$$$no_proxy" ]; then \
-			PROXY_ARGS="$$$$PROXY_ARGS --build-arg NO_PROXY=$$$$no_proxy"; \
-		elif [ -n "$$$$NO_PROXY" ]; then \
-			PROXY_ARGS="$$$$PROXY_ARGS --build-arg NO_PROXY=$$$$NO_PROXY"; \
-		fi; \
-		\
-		echo "Target Tags: $$$$TAG and $$$$TAG-$(DATE)"; \
-		echo "Proxy Args: $$$$PROXY_ARGS"; \
-		docker build \
-			$$$$PROXY_ARGS \
-			--build-arg REGISTRY=$(REGISTRY) \
-			--build-arg MAX_JOBS=$(MAX_JOBS) \
-			--build-arg TORCH_CUDA_ARCH_LIST='$(TORCH_CUDA_ARCH_LIST)' \
-			-t $(REGISTRY)/$(IMAGE_NAME):$$$$TAG \
-			-t $(REGISTRY)/$(IMAGE_NAME):$$$$TAG-$(DATE) \
-			"$$$$DIR"; \
-	fi
+		exit 0; \
+	fi; \
+	echo "------------------------------------------------"; \
+	echo "BUILDING COMPONENT: $(1) | ENV: $(2)"; \
+	META_FILE="$$$$DIR/meta.yaml"; \
+	UPSTREAM_REPO=""; UPSTREAM_COMMIT=""; UPSTREAM_BRANCH=""; COMP_NOTE=""; \
+	if [ -f "$$$$META_FILE" ]; then \
+		echo "Found $$$$META_FILE, parsing metadata..."; \
+		UPSTREAM_REPO=$$$$(yq eval '.upstream.repo' $$$$META_FILE); \
+		UPSTREAM_COMMIT=$$$$(yq eval '.upstream.commit' $$$$META_FILE); \
+		UPSTREAM_BRANCH=$$$$(yq eval '.upstream.branch' $$$$META_FILE); \
+		COMP_NOTE=$$$$(yq eval '.notes' $$$$META_FILE); \
+	fi; \
+	PROXY_ARGS=""; \
+	[ -n "$$$$http_proxy" ] && PROXY_ARGS="$$$$PROXY_ARGS --build-arg HTTP_PROXY=$$$$http_proxy"; \
+	[ -n "$$$$https_proxy" ] && PROXY_ARGS="$$$$PROXY_ARGS --build-arg HTTPS_PROXY=$$$$https_proxy"; \
+	[ -n "$$$$no_proxy" ] && PROXY_ARGS="$$$$PROXY_ARGS --build-arg NO_PROXY=$$$$no_proxy"; \
+	\
+	echo "Target Tags: $$$$TAG and $$$$TAG-$(DATE)"; \
+	echo "Proxy Args: $$$$PROXY_ARGS"; \
+	docker build \
+		$$$$PROXY_ARGS \
+		--build-arg REGISTRY=$(REGISTRY) \
+		--build-arg MAX_JOBS=$(MAX_JOBS) \
+		--build-arg TORCH_CUDA_ARCH_LIST='$(TORCH_CUDA_ARCH_LIST)' \
+		--build-arg UPSTREAM_REPO="$$$$UPSTREAM_REPO" \
+		--build-arg UPSTREAM_COMMIT="$$$$UPSTREAM_COMMIT" \
+		--build-arg UPSTREAM_BRANCH="$$$$UPSTREAM_BRANCH" \
+		-t $(REGISTRY)/$(IMAGE_NAME):$$$$TAG \
+		-t $(REGISTRY)/$(IMAGE_NAME):$$$$TAG-$(DATE) \
+		"$$$$DIR"; \
+	
 
 # 推送目标
 push-m-$(1)@$(2):
@@ -126,12 +137,6 @@ push-m-$(1)@$(2):
 	docker push $(REGISTRY)/$(IMAGE_NAME):$$$$TAG; \
 	docker push $(REGISTRY)/$(IMAGE_NAME):$$$$TAG-$(DATE)
 
-# 采集目标 (wheel 保存到 组件/环境 子目录下)
-# sageattn/
-# ├── py313-cu130-pt211/
-# ├── py313-cu130-pt211-fix-headdim256/
-# ├── py313-cu130-pt211-fix-sm120/
-# └── py313-cu130-pt211-fix-blackwell/
 collect-m-$(1)@$(2):
 	@TAG=$$($(1)_$(2)_TAG); \
 	if [ "$(REGISTRY)" = "docker.io" ]; then IMG="$(IMAGE_NAME):$$$$TAG"; else IMG="$(REGISTRY)/$(IMAGE_NAME):$$$$TAG"; fi; \
@@ -148,6 +153,65 @@ clean-m-$(1)@$(2):
 	@TAG=$$($(1)_$(2)_TAG); \
 	docker rmi $(REGISTRY)/$(IMAGE_NAME):$$$$TAG 2>/dev/null || true; \
 	docker rmi $(REGISTRY)/$(IMAGE_NAME):$$$$TAG-$(DATE) 2>/dev/null || true
+
+# 独立组件的 Release 目标（自动追加或新建）
+# 独立组件的 Release 目标（Tag 仅为模块名，支持多环境、多变体追加）
+release-m-$(1)@$(2):
+	@TARGET_DIR="$(WHEELS_HOST_DIR)/$(1)/$(2)"; \
+	if [ ! -d "$$$$TARGET_DIR" ] || [ -z "$$$$(ls $$$$TARGET_DIR/*.whl 2>/dev/null)" ]; then \
+		exit 0; \
+	fi; \
+	META_FILE="$$($(1)_$(2)_DIR)/meta.yaml"; \
+	VVARIANT="standard"; \
+	UPSTREAM_REPO=""; UPSTREAM_COMMIT=""; UPSTREAM_BRANCH=""; COMP_NOTE=""; \
+	if [ -f "$$$$META_FILE" ]; then \
+		echo "Found $$$$META_FILE, parsing metadata..."; \
+		UPSTREAM_REPO=$$$$(yq eval '.upstream.repo' $$$$META_FILE); \
+		UPSTREAM_COMMIT=$$$$(yq eval '.upstream.commit' $$$$META_FILE); \
+		UPSTREAM_BRANCH=$$$$(yq eval '.upstream.branch' $$$$META_FILE); \
+		COMP_NOTE=$$$$(yq eval '.notes' $$$$META_FILE); \
+	fi; \
+	if [ -f "$$$$META_FILE" ]; then \
+		VARIANT=$$$$(yq -r '.variant' $$$$META_FILE 2>/dev/null); \
+		UPSTREAM_REPO=$$$$(yq -r '.upstream.repo' $$$$META_FILE 2>/dev/null); \
+	fi; \
+	RELEASE_TAG="$(1)"; \
+	RELEASE_TITLE="$(1) Precompiled Wheels Repository"; \
+	NOTES_FILE="/tmp/release_notes_$(1).md"; \
+	\
+	if gh release view "$$$$RELEASE_TAG" --json body -q .body > $$$$NOTES_FILE 2>/dev/null; then \
+		echo "Fetched existing release notes from GitHub."; \
+	else \
+		if [ -f "./RELEASE_TEMPLATE.md" ]; then \
+			cp "./RELEASE_TEMPLATE.md" $$$$NOTES_FILE; \
+		else \
+			echo "## $$$$RELEASE_TITLE" > $$$$NOTES_FILE; \
+			echo "| Wheel包 | 上游仓库 | 分支 | 提交 | 说明 |" >> $$$$NOTES_FILE; \
+			echo "| :--- | :--- | :--- | :--- | :--- |" >> $$$$NOTES_FILE; \
+		fi; \
+	fi; \
+	\
+	cd $$$$TARGET_DIR; \
+	for f in *.whl; do \
+		if ! grep -q "$$$$f" $$$$NOTES_FILE; then \
+			echo "| \`$$$$f\` | [GitHub]($$$$UPSTREAM_REPO) | \`$$$$UPSTREAM_BRANCH\` | [$$$$UPSTREAM_COMMIT]($$$$UPSTREAM_REPO/commit/$$$$UPSTREAM_COMMIT) | $$$$COMP_NOTE |" >> $$$$NOTES_FILE; \
+		fi; \
+	done; \
+	\
+	echo "------------------------------------------------"; \
+	echo "UPLOADING WHEELS TO RELEASE TAG: $$$$RELEASE_TAG"; \
+	\
+	if gh release view "$$$$RELEASE_TAG" >/dev/null 2>&1; then \
+		echo "Release $$$$RELEASE_TAG exists. Appending assets and updating matrix table..."; \
+		gh release upload "$$$$RELEASE_TAG" $$$$TARGET_DIR/*.whl --clobber; \
+		gh release edit "$$$$RELEASE_TAG" --notes-file $$$$NOTES_FILE; \
+	else \
+		echo "Release $$$$RELEASE_TAG not found. Creating a new one with dynamic matrix table..."; \
+		gh release create "$$$$RELEASE_TAG" $$$$TARGET_DIR/*.whl \
+			--title "$$$$RELEASE_TITLE" \
+			--notes-file $$$$NOTES_FILE; \
+	fi; \
+	rm -f $$$$NOTES_FILE
 endef
 
 # --- 5. 实例化矩阵 ---
@@ -155,160 +219,51 @@ endef
 $(foreach c,$(ALL_COMPONENTS),$(foreach e,$(ALL_ENVS),$(eval $(call MATRIX_TEMPLATE,$(c),$(e)))))
 
 # --- 6. 批量汇总规则 ---
+# 按组件构建 (例如: make build-comp-cumesh)
+build-comp-%:
+	@for e in $(ALL_ENVS); do \
+		DIR="$(call get_comp_root,$*)$*-$$e"; \
+		if [ -d "$$DIR" ]; then \
+			$(MAKE) build-m-$*@$$e; \
+		fi; \
+	done
+
+# 按组件采集 (例如: make collect-comp-cumesh)
+collect-comp-%:
+	@for e in $(ALL_ENVS); do \
+		DIR="$(call get_comp_root,$*)$*-$$e"; \
+		if [ -d "$$DIR" ]; then \
+			$(MAKE) collect-m-$*@$$e; \
+		fi; \
+	done
+
+# 它会智能遍历所有环境目录，把属于该组件的所有本地轮子打包/追加到 GitHub 对应的模块 Release 中
+release-comp-%:
+	@echo "------------------------------------------------"
+	@echo "STARTING RELEASE FOR COMPONENT: $*"
+	@echo "------------------------------------------------"
+	@for e in $(ALL_ENVS); do \
+		DIR="$(call get_comp_root,$*)$*-$$e"; \
+		if [ -d "$$DIR" ]; then \
+			$(MAKE) release-m-$*@$$e; \
+		fi; \
+	done
+	@echo "Finished release process for component: $*"
 
 # 全量构建
 build-all: $(addprefix build-m-,$(MATRIX_COMBO))
-
-# 按环境构建 (例如: make build-env-py313-cu130-pt211)
-build-env-%:
-	@$(MAKE) $(addprefix build-m-,$(foreach c,$(ALL_COMPONENTS),$(c)@$*))
-
-# 按组件构建 (例如: make build-comp-cumesh)
-build-comp-%:
-	@$(MAKE) $(addprefix build-m-,$(foreach e,$(ALL_ENVS),$*@$(e)))
-
 # 批量推送
 push-all: $(addprefix push-m-,$(MATRIX_COMBO))
 
 # 批量采集
 collect-all: $(addprefix collect-m-,$(MATRIX_COMBO))
 
+# 核心修改 1：组件级一键批量发布
+release-all: $(addprefix release-m-,$(MATRIX_COMBO))
+
 # 删除采集的 wheel 文件
 collect-clean: 
-	rm -rf $(WHEELS_HOST_DIR)/*
+	rm -rf ./$(WHEELS_HOST_DIR)/*
 
 # 批量清理
 clean-all: $(addprefix clean-m-,$(MATRIX_COMBO))
-
-# --- 7. 状态查看 ---
-
-status:
-	@echo "Matrix Build Status (Local Images):"
-	@for c in $(ALL_COMPONENTS); do \
-		for e in $(ALL_ENVS); do \
-			TAG="$$c-$$e"; \
-			if [ "$(REGISTRY)" = "docker.io" ]; then IMG="$(IMAGE_NAME):$$TAG"; else IMG="$(REGISTRY)/$(IMAGE_NAME):$$TAG"; fi; \
-			if [ -n "$$(docker images -q $$IMG)" ]; then \
-				echo "  [✓] $$c | $$e"; \
-			else \
-				echo "  [ ] $$c | $$e"; \
-			fi; \
-		done; \
-	done
-
-
-# 默认 Release 标题和说明（可以通过参数覆盖）
-TITLE ?= $(DATE)
-NOTES ?= Release built on $(DATE)
-
-.PHONY: release
-
-# 创建 GitHub Release
-## 需要先执行 gh auth login 来登录 GitHub
-release:
-	@echo "Checking for wheel files..."
-	@if [ -z "$$(ls $(WHEELS_HOST_DIR)/*.whl 2>/dev/null)" ]; then \
-		echo "Error: No .whl files found in $(WHEELS_HOST_DIR)."; \
-		exit 1; \
-	fi
-	@echo "Creating GitHub Release: $(DATE)..."
-	gh release create $(DATE) $(WHEELS_HOST_DIR)/*.whl \
-		--title "$(TITLE)" \
-		--notes "$(NOTES)"
-
-
-# --- 8. 特定模块特定环境的自定义规则 (Custom Matrix) ---
-# --- 8. 自定义特殊环境编译规则 (独立于 build-m) ---
-
-# 专供 build-c 规则使用的映射变量 (格式: 组件名@环境名)
-# 注意：为了让 Makefile 处理起来最稳健，建议变量里直接用 @ 符号连接
-CUSTOM_TARGETS ?= sageattn@py313-cu130-pt211-fix-headdim256
-
-# 转换为 build-c- 前缀的目标列表
-CUSTOM_BUILD_TARGETS = $(addprefix build-c-,$(CUSTOM_TARGETS))
-
-.PHONY: build-c-all
-
-# 规则 1：编译 CUSTOM_TARGETS 变量中指定的全部内容
-build-c-all: $(CUSTOM_BUILD_TARGETS)
-	@echo "================================================"
-	@echo "All specific custom targets built successfully!"
-
-# 批量采集
-collect-c-all: $(CUSTOM_COLLECT_TARGETS)
-	@echo "================================================"
-	@echo "All specific custom wheels collected successfully!"
-
-# 批量清理
-clean-c-all: $(CUSTOM_CLEAN_TARGETS)
-	@echo "================================================"
-	@echo "All specific custom images cleaned successfully!"
-
-# 规则 2：编译单个特定项的模式匹配规则
-# 支持：make build-c-sageattn@py313-cu130-pt211-fix-headdim256
-build-c-%:
-	@# 1. 在 Shell 中利用 Python 或 Cut 精准切分组件名和环境名
-	@COMP=$$(echo "$*" | cut -d'@' -f1); \
-	ENV=$$(echo "$*" | cut -d'@' -f2); \
-	\
-	# 2. 仿照 get_comp_root 的逻辑，在 Shell 中进行路径分支判断 \
-	if echo "$$COMP" | grep -qE "^(cumesh|flexGEMM|o_voxel|nvdiffrec|nvdiffrast)$$"; then ROOT="3d/trellies/"; \
-	elif [ "$$COMP" = "sageattn" ]; then ROOT="accelerator/"; \
-	elif [ "$$COMP" = "fastvideo-kernel" ]; then ROOT="fastvideo/"; \
-	elif [ "$$COMP" = "xformers" ]; then ROOT="accelerator/"; \
-	elif [ "$$COMP" = "audiotools" ]; then ROOT="tts/"; \
-	elif [ "$$COMP" = "mmcv" ]; then ROOT="sdpose/"; \
-	elif [ "$$COMP" = "pytorch3d" ]; then ROOT="3d/lito/"; \
-	else ROOT="./"; fi; \
-	\
-	DIR="$${ROOT}$${COMP}-$${ENV}"; \
-	TAG="$${COMP}-$${ENV}"; \
-	\
-	# 3. 执行核心 Docker 构建逻辑 \
-	if [ ! -d "$$DIR" ]; then \
-		echo "  [SKIP] Directory $$DIR not found. Skipping."; \
-	else \
-		echo "------------------------------------------------"; \
-		echo "BUILDING CUSTOM COMPONENT: $$COMP | ENV: $$ENV"; \
-		PROXY_ARGS=""; \
-		if [ -n "$$http_proxy" ]; then PROXY_ARGS="$$PROXY_ARGS --build-arg HTTP_PROXY=$$http_proxy"; \
-		elif [ -n "$$HTTP_PROXY" ]; then PROXY_ARGS="$$PROXY_ARGS --build-arg HTTP_PROXY=$$HTTP_PROXY"; fi; \
-		if [ -n "$$https_proxy" ]; then PROXY_ARGS="$$PROXY_ARGS --build-arg HTTPS_PROXY=$$https_proxy"; \
-		elif [ -n "$$HTTPS_PROXY" ]; then PROXY_ARGS="$$PROXY_ARGS --build-arg HTTPS_PROXY=$$HTTPS_PROXY"; fi; \
-		if [ -n "$$no_proxy" ]; then PROXY_ARGS="$$PROXY_ARGS --build-arg NO_PROXY=$$no_proxy"; \
-		elif [ -n "$$NO_PROXY" ]; then PROXY_ARGS="$$PROXY_ARGS --build-arg NO_PROXY=$$NO_PROXY"; fi; \
-		\
-		docker build \
-			$$PROXY_ARGS \
-			--build-arg REGISTRY=$(REGISTRY) \
-			--build-arg MAX_JOBS=$(MAX_JOBS) \
-			--build-arg TORCH_CUDA_ARCH_LIST='$(TORCH_CUDA_ARCH_LIST)' \
-			-t $(REGISTRY)/$(IMAGE_NAME):$$TAG \
-			-t $(REGISTRY)/$(IMAGE_NAME):$$TAG-$(DATE) \
-			"$$DIR"; \
-	fi
-
-# 2. 单项采集规则
-# 支持：make collect-c-sageattn@py313-cu130-pt211-fix-headdim256
-collect-c-%:
-	@COMP=$$(echo "$*" | cut -d'@' -f1); \
-	ENV=$$(echo "$*" | cut -d'@' -f2); \
-	TAG="$${COMP}-$${ENV}"; \
-	if [ "$(REGISTRY)" = "docker.io" ]; then IMG="$(IMAGE_NAME):$$TAG"; else IMG="$(REGISTRY)/$(IMAGE_NAME):$$TAG"; fi; \
-	if [ -z "$$(docker images -q $$IMG)" ]; then \
-		echo "  [SKIP] Image $$IMG not found."; \
-	else \
-		echo "  [OK] Collecting from custom image $$IMG..."; \
-		mkdir -p "$(WHEELS_HOST_DIR)/$${COMP}/$${ENV}"; \
-		docker run --rm -v "$(WHEELS_HOST_DIR)/$${COMP}/$${ENV}:/extras" $$IMG sh -c 'cp -rv /wheels/*.whl /extras/ 2>/dev/null || true'; \
-	fi
-
-# 3. 单项清理规则
-# 支持：make clean-c-sageattn@py313-cu130-pt211-fix-headdim256
-clean-c-%:
-	@COMP=$$(echo "$*" | cut -d'@' -f1); \
-	ENV=$$(echo "$*" | cut -d'@' -f2); \
-	TAG="$${COMP}-$${ENV}"; \
-	echo "  [CLEAN] Removing local images for $$TAG"; \
-	docker rmi $(REGISTRY)/$(IMAGE_NAME):$$TAG 2>/dev/null || true; \
-	docker rmi $(REGISTRY)/$(IMAGE_NAME):$$TAG-$(DATE) 2>/dev/null || tru

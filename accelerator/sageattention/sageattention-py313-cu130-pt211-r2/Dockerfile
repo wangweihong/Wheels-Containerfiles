@@ -5,7 +5,7 @@
 
 ARG REGISTRY=docker.io
 
-FROM ${REGISTRY}/yanwk/comfyui-boot:base-cu130-pt211-cache AS buildingStage
+FROM ${REGISTRY}/yanwk/comfyui-boot:base-cu130-pt211-cache AS building-stage
 
 WORKDIR /WORK/wheels
 
@@ -30,6 +30,8 @@ ARG TORCH_VERSION="pt211"
 ARG VIRIANT="r2"
 # docker build cache id, 避免缓存冲突
 ARG CACHE_KEY="sageattn-py313-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
+
+RUN echo "===> [MATRIX CHECK] Repo: ${UPSTREAM_REPO} | Branch: ${UPSTREAM_BRANCH} | COMMIT: ${UPSTREAM_COMMIT} | CUDA: ${CUDA_VERSION}"
 
 RUN ${HTTPS_PROXY:+git config --global https.proxy $HTTPS_PROXY} && \
     ${HTTP_PROXY:+git config --global http.proxy $HTTP_PROXY} && \
@@ -61,13 +63,13 @@ RUN set -eu \
     && cd /WORK/wheels \
     && for f in *.whl; do \
          PREFIX=${f%%-cp313*} \
-         && mv "$f" "${PREFIX}-${VIRIANT}+git.${UPSTREAM_BRANCH}.${BUILD_SHA}-py313-${CUDA_VERSION}-${TORCH_VERSION}-linux_x86_64.whl"; \
+         && mv "$f" "${PREFIX}+git@${BUILD_SHA}-py313-${CUDA_VERSION}-${TORCH_VERSION}-linux_x86_64.whl"; \
        done
 
 ################################################################################
 # Save the result
-FROM ${REGISTRY}/library/alpine:latest AS savingStage
+FROM ${REGISTRY}/library/alpine:latest AS saving-stage
 
 LABEL maintainer="YAN Wenkun <code@yanwk.fun>"
 
-COPY --from=buildingStage /WORK/wheels /wheels
+COPY --from=building-stage /WORK/wheels /wheels

@@ -8,3 +8,4 @@ env:
   python: "3.13"
   cuda: "13.0"
   pytorch: "2.11"
+notes: "修复ideogram4等模型使用sageattention加速时unsupported head dim 256的问题"

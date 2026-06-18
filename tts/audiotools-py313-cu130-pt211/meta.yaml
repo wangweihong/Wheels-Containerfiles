@@ -8,3 +8,4 @@ env:
   python: "3.13"
   cuda: "13.0"
   pytorch: "2.11"
+notes: "tts依赖的音频处理工具库"

@@ -8,3 +8,4 @@ env:
   python: "3.13"
   cuda: "13.0"
   pytorch: "2.11"
+notes: "识别图片人物动作的sdpose依赖的mmcv库"

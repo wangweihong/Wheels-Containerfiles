@@ -5,7 +5,7 @@
 
 ARG REGISTRY=docker.io
 
-FROM ${REGISTRY}/yanwk/comfyui-boot:base-cu130-pt211 AS buildingStage
+FROM ${REGISTRY}/yanwk/comfyui-boot:base-cu130-pt211 AS building-stage
 
 RUN set -eu \
     && mkdir -p /WORK/wheels
@@ -34,6 +34,8 @@ ARG VIRIANT="standard"
 # docker build cache id, 避免缓存冲突
 ARG CACHE_KEY="nvdiffrast-py313-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
 
+RUN echo "===> [MATRIX CHECK] Repo: ${UPSTREAM_REPO} | Branch: ${UPSTREAM_BRANCH} | COMMIT: ${UPSTREAM_COMMIT} | CUDA: ${CUDA_VERSION}"
+
 # Download repo and fix
 ## -depth=1 仅下载最新版本
 ## --single-branch 仅下载指定分支
@@ -58,14 +60,14 @@ RUN set -eu \
     && cd /WORK/wheels \
     && for f in *.whl; do \
          PREFIX=${f%%-cp313*} \
-         && mv "$f" "${PREFIX}-${VIRIANT}+git.${UPSTREAM_BRANCH}.${BUILD_SHA}-py313-${CUDA_VERSION}-${TORCH_VERSION}-linux_x86_64.whl"; \
+         && mv "$f" "${PREFIX}+git@${BUILD_SHA}-py313-${CUDA_VERSION}-${TORCH_VERSION}-linux_x86_64.whl"; \
        done
 
 
 ################################################################################
 # Save the result
-FROM ${REGISTRY}/library/alpine:latest AS savingStage
+FROM ${REGISTRY}/library/alpine:latest AS saving-stage
 
 LABEL maintainer="Wangweihong <wangweihong2018@qq.com>"
 
-COPY --from=buildingStage /WORK/wheels /wheels
+COPY --from=building-stage /WORK/wheels /wheels
