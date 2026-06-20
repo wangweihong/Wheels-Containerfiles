@@ -25,9 +25,10 @@ ARG UPSTREAM_BRANCH="main"
 ARG UPSTREAM_COMMIT="87f98c9"
 ARG CUDA_VERSION="cu130"
 ARG TORCH_VERSION="pt211"
+ARG PYTHON_VERSION="cp313"
 ARG VIRIANT="standard"
 # docker build cache id, 避免缓存冲突
-ARG CACHE_KEY="fastvideo-kernel-py313-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
+ARG CACHE_KEY="fastvideo-kernel-${PYTHON_VERSION}-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
 
 RUN echo "===> [MATRIX CHECK] Repo: ${UPSTREAM_REPO} | Branch: ${UPSTREAM_BRANCH} | COMMIT: ${UPSTREAM_COMMIT} | CUDA: ${CUDA_VERSION}"
 
@@ -59,7 +60,7 @@ RUN set -eu \
     && cd /WORK/wheels \
     && for f in *.whl; do \
          PREFIX=${f%%-cp313*} \
-         && mv "$f" "${PREFIX}+git.${BUILD_SHA}-py313.${CUDA_VERSION}.${TORCH_VERSION}-cp313-cp313-linux_x86_64.whl"; \
+         && mv "$f" "${PREFIX}+git.${BUILD_SHA}.${CUDA_VERSION}.${TORCH_VERSION}-${PYTHON_VERSION}-${PYTHON_VERSION}-linux_x86_64.whl"; \
        done
 
 ################################################################################

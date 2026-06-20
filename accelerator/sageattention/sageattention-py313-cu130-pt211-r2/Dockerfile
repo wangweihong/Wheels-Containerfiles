@@ -27,9 +27,10 @@ ARG UPSTREAM_BRANCH="main"
 ARG UPSTREAM_COMMIT="d1a57a5"
 ARG CUDA_VERSION="cu130"
 ARG TORCH_VERSION="pt211"
+ARG PYTHON_VERSION="cp313"
 ARG VIRIANT="r2"
 # docker build cache id, 避免缓存冲突
-ARG CACHE_KEY="sageattn-py313-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
+ARG CACHE_KEY="sageattn-${PYTHON_VERSION}-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
 
 RUN echo "===> [MATRIX CHECK] Repo: ${UPSTREAM_REPO} | Branch: ${UPSTREAM_BRANCH} | COMMIT: ${UPSTREAM_COMMIT} | CUDA: ${CUDA_VERSION}"
 
@@ -63,7 +64,7 @@ RUN set -eu \
     && cd /WORK/wheels \
     && for f in *.whl; do \
          PREFIX=${f%%-cp313*} \
-         && mv "$f" "${PREFIX}+git.${BUILD_SHA}-py313.${CUDA_VERSION}.${TORCH_VERSION}-cp313-cp313-linux_x86_64.whl"; \
+         && mv "$f" "${PREFIX}+git.${BUILD_SHA}.${CUDA_VERSION}.${TORCH_VERSION}-${PYTHON_VERSION}-${PYTHON_VERSION}-linux_x86_64.whl"; \
        done
 
 ################################################################################
