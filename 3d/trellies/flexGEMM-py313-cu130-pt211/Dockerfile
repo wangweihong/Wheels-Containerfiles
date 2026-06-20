@@ -5,7 +5,7 @@
 
 ARG REGISTRY=docker.io
 
-FROM ${REGISTRY}/yanwk/comfyui-boot:base-cu130-pt211 AS buildingStage
+FROM ${REGISTRY}/yanwk/comfyui-boot:base-cu130-pt211 AS building-stage
 
 RUN set -eu \
     && mkdir -p /WORK/wheels
@@ -22,25 +22,52 @@ ARG HTTP_PROXY
 ARG HTTPS_PROXY
 ARG NO_PROXY
 
+
 ###################################################sou#############################
+# ==============================================================================
+# 新增：从 meta.yaml 映射进来的构建参数（提供默认值以防手动构建时报错）
+# ==============================================================================
+ARG UPSTREAM_REPO="https://github.com/visualbruno/FlexGEMM"
+ARG UPSTREAM_BRANCH="main"
+ARG UPSTREAM_COMMIT="db388bd"
+ARG CUDA_VERSION="cu130"
+ARG TORCH_VERSION="pt211"
+ARG VIRIANT="standard"
+# docker build cache id, 避免缓存冲突
+ARG CACHE_KEY="flexGEMM-py313-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
+
+RUN echo "===> [MATRIX CHECK] Repo: ${UPSTREAM_REPO} | Branch: ${UPSTREAM_BRANCH} | COMMIT: ${UPSTREAM_COMMIT} | CUDA: ${CUDA_VERSION}"
+
 # Download repo and fix
-RUN git clone --depth=1 --no-tags --recurse-submodules --shallow-submodules \
-https://github.com/visualbruno/FlexGEMM \
+RUN ${HTTPS_PROXY:+git config --global https.proxy $HTTPS_PROXY} && \
+    ${HTTP_PROXY:+git config --global http.proxy $HTTP_PROXY} && \
+   git clone --single-branch --branch ${UPSTREAM_BRANCH} --recurse-submodules\
+    ${UPSTREAM_REPO} \
 /WORK/FlexGEMM
 
 WORKDIR /WORK/FlexGEMM
 
+# 切换到 meta.yaml 指定的精准分支、Tag 或 Commit SHA
+RUN git checkout ${UPSTREAM_COMMIT}
     
 RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=cache,target=/WORK/FlexGEMM/build \
-    --mount=type=cache,target=/WORK/FlexGEMM/dist \
-    python3.13 setup.py bdist_wheel -d /WORK/wheels
+    --mount=type=cache,id=${CACHE_KEY}-build,target=/WORK/FlexGEMM/build \
+    --mount=type=cache,id=${CACHE_KEY}-dist,target=/WORK/FlexGEMM/dist \
+    python3.13 setup.py bdist_wheel -d /WORK/wheels 
+
+RUN set -eu \
+    && BUILD_SHA=$(git rev-parse --short=7 HEAD) \
+    && cd /WORK/wheels \
+    && for f in *.whl; do \
+         PREFIX=${f%%-cp313*} \
+         && mv "$f" "${PREFIX}+git@${BUILD_SHA}-py313-${CUDA_VERSION}-${TORCH_VERSION}-linux_x86_64.whl"; \
+       done
 
 
 ################################################################################
 # Save the result
-FROM ${REGISTRY}/library/alpine:latest AS savingStage
+FROM ${REGISTRY}/library/alpine:latest AS saving-stage
 
 LABEL maintainer="Wangweihong <wangweihong2018@qq.com>"
 
-COPY --from=buildingStage /WORK/wheels /wheels
+COPY --from=building-stage /WORK/wheels /wheels

@@ -1,0 +1,10 @@
+module: "spargeattn"
+variant: "standard" # 如果是特调版，可以写 "fix-headdim256"
+upstream:
+  repo: "https://github.com/thu-ml/SpargeAttn"
+  branch: "main"
+  commit: "d1a57a5"
+env:
+  python: "3.13"
+  cuda: "13.0"
+  pytorch: "2.11"

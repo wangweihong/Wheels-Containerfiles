@@ -1,61 +1,65 @@
 ################################################################################
-# Dockerfile that builds 'yanwk/comfyui-extras:cumesh-py313-cu130-pt211'.
-# Used for compiling CumMesh.
+# Dockerfile that builds 'yanwk/comfyui-extras:sageattn-py313-cu130-pt211'.
+# Used for compiling SageAttention.
 ################################################################################
 
 ARG REGISTRY=docker.io
 
-FROM ${REGISTRY}/yanwk/comfyui-boot:base-cu130-pt211 AS building-stage
+FROM ${REGISTRY}/yanwk/comfyui-boot:base-cu130-pt211-cache AS building-stage
 
-RUN set -eu \
-    && mkdir -p /WORK/wheels
+WORKDIR /WORK/wheels
 
 # Limit CPU/RAM usage during builds. Set to 1 to avoid crash on GitHub CI.
 ARG MAX_JOBS=1
+ARG TORCH_CUDA_ARCH_LIST='8.0;8.6;10.0;12.0+PTX'
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 ARG NO_PROXY
-# 必须加，不然会报错：
-# 1.020   File "/usr/local/lib64/python3.13/site-packages/torch/utils/cpp_extension.py", line 2600, in _get_cuda_arch_flags
-# 1.020     arch_list[-1] += '+PTX'
-# 1.020     ~~~~~~~~~^^^^
-# 1.020 IndexError: list index out of range
-ARG TORCH_CUDA_ARCH_LIST='8.0;8.6;10.0;12.0;'
+ARG BUILD_BUNDLE_PTXAS=1
+
+
+RUN pip install build "wheel<0.44" "packaging<24"
+
 ################################################################################
-# ==============================================================================
-# 新增：从 meta.yaml 映射进来的构建参数（提供默认值以防手动构建时报错）
-# ==============================================================================
-ARG UPSTREAM_REPO="https://github.com/visualbruno/CuMesh"
+# Download repo and fix
+ARG UPSTREAM_REPO="https://github.com/thu-ml/SageAttention"
 ARG UPSTREAM_BRANCH="main"
-ARG UPSTREAM_COMMIT="d10e54c"
+ARG UPSTREAM_COMMIT="d1a57a5"
 ARG CUDA_VERSION="cu130"
 ARG TORCH_VERSION="pt211"
-ARG VIRIANT="standard"
+ARG VIRIANT="r2"
 # docker build cache id, 避免缓存冲突
-ARG CACHE_KEY="cumesh-py313-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
+ARG CACHE_KEY="sageattn3-py313-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
+
 RUN echo "===> [MATRIX CHECK] Repo: ${UPSTREAM_REPO} | Branch: ${UPSTREAM_BRANCH} | COMMIT: ${UPSTREAM_COMMIT} | CUDA: ${CUDA_VERSION}"
 
-RUN ${HTTPS_PROXY:+git config --global https.proxy $HTTPS_PROXY} && \ 
+RUN ${HTTPS_PROXY:+git config --global https.proxy $HTTPS_PROXY} && \
     ${HTTP_PROXY:+git config --global http.proxy $HTTP_PROXY} && \
     git clone --single-branch --branch ${UPSTREAM_BRANCH} --recurse-submodules\
     ${UPSTREAM_REPO} \
-/WORK/CuMesh
+/WORK/SageAttention
 
-WORKDIR /WORK/CuMesh
-
+WORKDIR /WORK/SageAttention
 # 切换到 meta.yaml 指定的精准分支、Tag 或 Commit SHA
 RUN git checkout ${UPSTREAM_COMMIT}
 
-# https://github.com/visualbruno/CuMesh/issues/1
-RUN cd third_party/cubvh \
-    && mkdir third_party \
-    && cd third_party \
-    && ln -s ../../../ eigen
+WORKDIR /WORK/SageAttention/sageattention3_blackwell
+
+# Fix for the dumb code asking for a freaking GPU
+RUN sed -i \
+'/cc_major, cc_minor = torch.cuda.get_device_capability()/,/raise RuntimeError("Unsupported GPU")/c\    cc_flag.append("-gencode")\n    cc_flag.append("arch=compute_100a,code=sm_100a")' \
+setup.py
+
+################################################################################
+# SageAttention 3 (Blackwell only)
+# https://github.com/thu-ml/SageAttention/blob/main/sageattention3_blackwell/setup.py
+
+WORKDIR /WORK/SageAttention/sageattention3_blackwell
 
 RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=cache,id=${CACHE_KEY}-build,target=/WORK/CuMesh/build \
-    --mount=type=cache,id=${CACHE_KEY}-dist,target=/WORK/CuMesh/dist \
-    python3.13 setup.py bdist_wheel -d /WORK/wheels 
+    --mount=type=cache,id=${CACHE_KEY}-build,target=/WORK/SageAttention/sageattention3_blackwell/build \
+    --mount=type=cache,id=${CACHE_KEY}-dist,target=/WORK/SageAttention/sageattention3_blackwell/dist \
+    python3.13 -m build --wheel --no-isolation --outdir /WORK/wheels .
 
 RUN set -eu \
     && BUILD_SHA=$(git rev-parse --short=7 HEAD) \
@@ -64,7 +68,6 @@ RUN set -eu \
          PREFIX=${f%%-cp313*} \
          && mv "$f" "${PREFIX}+git@${BUILD_SHA}-py313-${CUDA_VERSION}-${TORCH_VERSION}-linux_x86_64.whl"; \
        done
-
 
 ################################################################################
 # Save the result

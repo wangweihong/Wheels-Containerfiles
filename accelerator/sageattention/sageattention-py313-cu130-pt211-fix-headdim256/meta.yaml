@@ -1,0 +1,11 @@
+module: "sageattention"
+variant: "fix-headdim256" # 如果是特调版，可以写 "fix-headdim256"
+upstream:
+  repo: "https://github.com/woct0rdho/SageAttention"
+  branch: "head_dim_256"
+  commit: "5bcf8c3"
+env:
+  python: "3.13"
+  cuda: "13.0"
+  pytorch: "2.11"
+notes: "修复ideogram4等模型使用sageattention加速时unsupported head dim 256的问题"

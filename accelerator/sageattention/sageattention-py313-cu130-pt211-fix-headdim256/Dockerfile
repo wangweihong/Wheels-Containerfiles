@@ -1,64 +1,65 @@
 ################################################################################
-# Dockerfile that builds 'yanwk/comfyui-extras:pytorch3d-py313-cu130-pt211'.
-# Used for compiling pytorch3d.
+# Dockerfile that builds 'yanwk/comfyui-extras:sageattn-py313-cu130-pt211'.
+# Used for compiling SageAttention.
 ################################################################################
 
 ARG REGISTRY=docker.io
 
-FROM ${REGISTRY}/yanwk/comfyui-boot:base-cu130-pt211 AS building-stage
+FROM ${REGISTRY}/yanwk/comfyui-boot:base-cu130-pt211-cache AS building-stage
 
-RUN set -eu \
-    && mkdir -p /WORK/wheels
+WORKDIR /WORK/wheels
 
 # Limit CPU/RAM usage during builds. Set to 1 to avoid crash on GitHub CI.
 ARG MAX_JOBS=1
-# 必须加，不然会报错：
-# 1.020   File "/usr/local/lib64/python3.13/site-packages/torch/utils/cpp_extension.py", line 2600, in _get_cuda_arch_flags
-# 1.020     arch_list[-1] += '+PTX'
-# 1.020     ~~~~~~~~~^^^^
-# 1.020 IndexError: list index out of range
 ARG TORCH_CUDA_ARCH_LIST='8.0;8.6;10.0;12.0+PTX'
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 ARG NO_PROXY
+ARG BUILD_BUNDLE_PTXAS=1
 
-###################################################sou#############################
-# ==============================================================================
-# 新增：从 meta.yaml 映射进来的构建参数（提供默认值以防手动构建时报错）
-# ==============================================================================
-ARG UPSTREAM_REPO="https://github.com/facebookresearch/pytorch3d"
-ARG UPSTREAM_BRANCH="main"
-ARG UPSTREAM_COMMIT="7f8a8a1"
+RUN pip install build "wheel<0.44" "packaging<24"
+
+################################################################################
+# Download repo and fix
+RUN pip install pybind11
+
+ARG UPSTREAM_REPO="https://github.com/woct0rdho/SageAttention"
+ARG UPSTREAM_BRANCH="head_dim_256"
+ARG UPSTREAM_COMMIT="5bcf8c3"
 ARG CUDA_VERSION="cu130"
 ARG TORCH_VERSION="pt211"
-ARG VIRIANT="standard"
+ARG VIRIANT="fix-headdim256"
 # docker build cache id, 避免缓存冲突
-ARG CACHE_KEY="pytorch3d-py313-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
+ARG CACHE_KEY="sageattn-py313-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
+
 RUN echo "===> [MATRIX CHECK] Repo: ${UPSTREAM_REPO} | Branch: ${UPSTREAM_BRANCH} | COMMIT: ${UPSTREAM_COMMIT} | CUDA: ${CUDA_VERSION}"
-# Download repo and fix
+# 修复了ideogram4 headdim 256问题
+# https://github.com/woct0rdho/SageAttention/issues/93
 RUN ${HTTPS_PROXY:+git config --global https.proxy $HTTPS_PROXY} && \
     ${HTTP_PROXY:+git config --global http.proxy $HTTP_PROXY} && \
     git clone --single-branch --branch ${UPSTREAM_BRANCH} --recurse-submodules\
     ${UPSTREAM_REPO} \
-/WORK/pytorch3d
+/WORK/SageAttention-head_dim_256
 
-WORKDIR /WORK/pytorch3d/
-
+WORKDIR /WORK/SageAttention-head_dim_256
+# 切换到 meta.yaml 指定的精准分支、Tag 或 Commit SHA
 RUN git checkout ${UPSTREAM_COMMIT}
-    
+
+################################################################################
+WORKDIR /WORK/SageAttention-head_dim_256
+
 RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=cache,id=${CACHE_KEY}-build,target=/WORK/pytorch3d/build \
-    --mount=type=cache,id=${CACHE_KEY}-dist,target=/WORK/pytorch3d/dist \
-    python3.13 setup.py bdist_wheel -d /WORK/wheels 
+    --mount=type=cache,target=/WORK/SageAttention-head_dim_256/build \
+    --mount=type=cache,target=/WORK/SageAttention-head_dim_256/dist \
+    python3.13 -m build --wheel --no-isolation  --verbose --outdir /WORK/wheels . 
 
 RUN set -eu \
     && BUILD_SHA=$(git rev-parse --short=7 HEAD) \
     && cd /WORK/wheels \
     && for f in *.whl; do \
-         PREFIX=${f%%-cp313*} \
+         PREFIX=${f%%-cp313-*} \
          && mv "$f" "${PREFIX}+git@${BUILD_SHA}-py313-${CUDA_VERSION}-${TORCH_VERSION}-linux_x86_64.whl"; \
        done
-
 
 ################################################################################
 # Save the result

@@ -3,7 +3,7 @@
 # Used for compiling xFormers.
 ################################################################################
 
-FROM docker.io/yanwk/comfyui-boot:cu124 AS buildingStage
+FROM docker.io/yanwk/comfyui-boot:cu124 AS building-stage
 
 # Compile-install xformers
 
@@ -41,8 +41,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     python3 setup.py bdist_wheel -d /WORK/wheels
 
 # Save the result
-FROM docker.io/library/alpine:latest AS savingStage
+FROM docker.io/library/alpine:latest AS saving-stage
 
 LABEL maintainer="YAN Wenkun <code@yanwk.fun>"
 
-COPY --from=buildingStage /WORK/wheels /wheels
+COPY --from=building-stage /WORK/wheels /wheels
