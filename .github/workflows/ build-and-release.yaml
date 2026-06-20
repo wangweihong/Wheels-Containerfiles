@@ -1,0 +1,77 @@
+name: 🚀 Auto Build & Release Matrix Wheels
+
+on:
+  # 支持在 GitHub 页面上手动勾选模块触发
+  workflow_dispatch:
+    inputs:
+      module:
+        description: "选择要执行流水线的组件模块 (Component)"
+        required: true
+        default: "sageattention"
+        type: choice
+        options:
+          - cumesh
+          - flexGEMM
+          - o_voxel
+          - sageattention
+          - sageattn3
+          - spargeattn
+          - nvdiffrec
+          - nvdiffrast
+          - fastvideo-kernel
+          - xformers
+          - audiotools
+          - mmcv
+          - pytorch3d
+
+# 核心安全权限：必须赋予工作流对 Release 写入和创建的权限
+permissions:
+  contents: write
+
+jobs:
+  matrix-build-release:
+    name: Build & Release -> ${{ github.event.inputs.module }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. 拉取代码仓
+        uses: actions/checkout@v4
+        with:
+          submodules: "recursive" # 如果主仓带有子模块，一并拉取
+
+      - name: 2. 清理磁盘空间 (防止编译重量级 AI 算子时爆磁盘)
+        run: |
+          echo "=== 正在释放无用的大型依赖，扩大可用磁盘空间 ==="
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          df -h
+
+      - name: 3. 设置 Docker Buildx 环境
+        uses: docker/setup-buildx-action@v3
+
+      - name: 4. 安装 Python 版 yq 依赖
+        run: |
+          # 保持与本地完全一致的 Python jq 架构环境，确保 Makefile 中的 yq -r 完美解析
+          python3 -m pip install --upgrade pip
+          pip install yq
+          yq --version
+
+      - name: 5. 执行矩阵编译与本地资产采集
+        run: |
+          # 调用你写好的 Makefile 核心命令
+          # 限制 MAX_JOBS=2 是因为 GitHub 托管服务器默认为 2 核，防止多线程引发内存挂起
+          make build-comp-${{ github.event.inputs.module }}
+        env:
+          MAX_JOBS: 2
+          REGISTRY: docker.io
+          IMAGE_NAME: yanwk/comfyui-extras
+
+      - name: 6. 提取元数据并追加发布至 GitHub Release
+        run: |
+          # 调用你写好的组件级发布命令
+          make release-comp-${{ github.event.inputs.module }}
+        env:
+          # 将 GitHub 运行时自动生成的临时 Token 喂给 gh cli
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
