@@ -76,10 +76,13 @@ help:
 	@echo "  make build-m-cumesh@py313  - Build specific component-env combo"
 
 	@echo "  make collect-all             - Collect everything (Matrix)"
-	@echo "  make collect-comp-cumesh..     - Collect one component for all envs"
-	@echo "  make collect-m-cumesh@py313..  - Collect specific component-env combo"
+	@echo "  make collect-comp-cumesh     - Collect one component for all envs"
+	@echo "  make collect-m-cumesh@py313-cu130-pt211  - Collect specific component-env combo"
 
-	@echo "  make status                - Show what is built locally"
+	@echo "  make release-all             - Release everything (Matrix)"
+	@echo "  make release-comp-cumesh     - Release one component for all envs"
+	@echo "  make release-m-cumesh@py313-cu130-pt211  - Release specific component-env combo"
+
 	@echo ""
 	@echo "Components: $(ALL_COMPONENTS)"
 	@echo "Envs:       $(ALL_ENVS)"
