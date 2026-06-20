@@ -60,6 +60,8 @@ jobs:
           # 调用你写好的 Makefile 核心命令
           # 限制 MAX_JOBS=2 是因为 GitHub 托管服务器默认为 2 核，防止多线程引发内存挂起
           make build-comp-${{ github.event.inputs.module }}
+          # 2. 把编译好的 whl 轮子从 Docker 容器中抽取到宿主机绝对路径下
+          make collect-comp-${{ github.event.inputs.module }}
         env:
           MAX_JOBS: 2
           REGISTRY: docker.io
