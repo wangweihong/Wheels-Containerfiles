@@ -81,8 +81,13 @@ jobs:
         if: ${{ github.event.inputs.environment != 'list' && github.event.inputs.environment != '' }}
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc "/usr/local/share/boost"
+          free -h
           df -h
           echo "=== 正在创建 10GB Swap 虚拟内存 ==="
+          # 1. 强行关闭该路径的 swap 挂载（如果没挂载则静默跳过，不报错）
+          sudo swapoff /swapfile 2>/dev/null || true
+          # 2. 彻底删除旧的冲突文件
+          sudo rm -f /swapfile
           sudo fallocate -l 10G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
