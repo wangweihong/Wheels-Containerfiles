@@ -2,6 +2,7 @@ module: "sageattention"
 variant: "fix-headdim256" # 如果是特调版，可以写 "fix-headdim256"
 upstream:
   repo: "https://github.com/woct0rdho/SageAttention"
+  description: "SageAttention 的 fork，修复 head_dim=256 不被支持的问题"
   branch: "head_dim_256"
   commit: "5bcf8c3"
 env:

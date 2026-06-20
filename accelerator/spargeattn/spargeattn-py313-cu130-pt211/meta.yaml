@@ -2,6 +2,7 @@ module: "spargeattn"
 variant: "standard" # 如果是特调版，可以写 "fix-headdim256"
 upstream:
   repo: "https://github.com/thu-ml/SpargeAttn"
+  description: "无需训练的稀疏注意力算子，通过两阶段在线过滤器与 8-bit 量化加速任意模型推理，几乎不损失精度"
   branch: "main"
   commit: "d1a57a5"
 env:

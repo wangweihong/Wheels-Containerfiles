@@ -26,6 +26,25 @@
 | audiotools | `tts/` | Descript AudioTools |
 | mmcv | `sdpose/` | MMCV |
 
+### 组件总览（上游仓库与功能描述）
+
+| 组件 | 上游仓库 | 功能描述 |
+|------|---------|----------|
+| cumesh | [visualbruno/CuMesh](https://github.com/visualbruno/CuMesh) | 基于 CUDA 的高性能网格处理库，为 TRELLIS 3D 生成提供网格算子支持 |
+| flexGEMM | [visualbruno/FlexGEMM](https://github.com/visualbruno/FlexGEMM) | 灵活的 CUDA 通用矩阵乘法(GEMM)库，为 TRELLIS 3D 生成提供算子支持 |
+| o_voxel | [visualbruno/TRELLIS.2](https://github.com/visualbruno/TRELLIS.2) | 基于结构化 3D 隐空间的高保真 3D 资产生成模型，可从单张图片生成高质量 3D 资产 |
+| nvdiffrec | [JeffreyXiang/nvdiffrec](https://github.com/JeffreyXiang/nvdiffrec) | 从图像集合中高效恢复 3D 几何与材质的可微渲染库 |
+| nvdiffrast | [NVlabs/nvdiffrast](https://github.com/NVlabs/nvdiffrast) | 模块化可微渲染原语库，提供高质量光栅化与可微渲染 |
+| pytorch3d | [facebookresearch/pytorch3d](https://github.com/facebookresearch/pytorch3d) | FAIR 推出的基于 PyTorch 的 3D 计算机视觉深度学习组件库，提供 3D 数据结构、渲染与可微算子 |
+| sageattention | [thu-ml/SageAttention](https://github.com/thu-ml/SageAttention) | 即插即用的高效精确注意力算子，通过 8-bit/4-bit 量化实现接近无损的推理加速 |
+| sageattn3 | [thu-ml/SageAttention](https://github.com/thu-ml/SageAttention) | 即插即用的高效精确注意力算子，通过 8-bit/4-bit 量化实现接近无损的推理加速 |
+| spargeattn | [thu-ml/SpargeAttn](https://github.com/thu-ml/SpargeAttn) | 无需训练的稀疏注意力算子，通过两阶段在线过滤器与 8-bit 量化加速任意模型推理，几乎不损失精度 |
+| fastvideo-kernel | [hao-ai-lab/FastVideo](https://github.com/hao-ai-lab/FastVideo) | 用于加速视频扩散模型推理与后训练的统一框架 |
+| audiotools | [descriptinc/audiotools](https://github.com/descriptinc/audiotools) | 面向音频信号处理的全方位工具库，提供可微分的音频变换、特征提取与数据增强 |
+| mmcv | [open-mmlab/mmcv](https://github.com/open-mmlab/mmcv) | OpenMMLab 系列计算机视觉项目的基础库，提供自定义 CUDA 算子、配置系统与通用工具 |
+
+> 注：`sageattention` 的 `fix-headdim256` 变体使用 fork 仓库 [woct0rdho/SageAttention](https://github.com/woct0rdho/SageAttention)，用于修复 head_dim=256 不被支持的问题。
+
 ### 支持的环境
 
 - **py313-cu130-pt211** - Python 3.13 + CUDA 13.0 + PyTorch 2.11
@@ -163,6 +182,7 @@ module: "sageattention"
 variant: "standard"   # 变体，如 standard / r2 / fix-headdim256
 upstream:
   repo: "https://github.com/thu-ml/SageAttention"
+  description: "即插即用的高效精确注意力算子，通过 8-bit/4-bit 量化实现接近无损的推理加速"
   branch: "main"
   commit: "d1a57a5"
 env:

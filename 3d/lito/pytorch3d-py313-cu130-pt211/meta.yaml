@@ -2,6 +2,7 @@ module: "pytorch3d"
 variant: "standard" # 如果是特调版，可以写 "fix-headdim256"
 upstream:
   repo: "https://github.com/facebookresearch/pytorch3d.git"
+  description: "FAIR 推出的基于 PyTorch 的 3D 计算机视觉深度学习组件库，提供 3D 数据结构、渲染与可微算子"
   branch: "main"
   commit: "7f8a8a1"
 env:

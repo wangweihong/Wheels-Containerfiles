@@ -2,6 +2,7 @@ module: "flexGEMM"
 variant: "standard" # 如果是特调版，可以写 "fix-headdim256"
 upstream:
   repo: "https://github.com/visualbruno/FlexGEMM"
+  description: "灵活的 CUDA 通用矩阵乘法(GEMM)库，为 TRELLIS 3D 生成提供算子支持"
   branch: "main"
   commit: "db388bd" # 可以是 main/tags，但强烈建议在正式发布时锁死为具体的 Commit SHA
 env:

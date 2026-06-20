@@ -2,6 +2,7 @@ module: "sageattn3"
 variant: "standard" # 如果是特调版，可以写 "fix-headdim256"
 upstream:
   repo: "https://github.com/thu-ml/SageAttention"
+  description: "即插即用的高效精确注意力算子，通过 8-bit/4-bit 量化实现接近无损的推理加速"
   branch: "main"
   commit: "7f8a8a1"
 env:

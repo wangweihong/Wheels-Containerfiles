@@ -2,6 +2,7 @@ module: "o_voxel"
 variant: "standard" # 如果是特调版，可以写 "fix-headdim256"
 upstream:
   repo: "https://github.com/visualbruno/TRELLIS.2"
+  description: "基于结构化 3D 隐空间的高保真 3D 资产生成模型，可从单张图片生成高质量 3D 资产"
   branch: "main"
   commit: "65d1e13" # 可以是 main/tags，但强烈建议在正式发布时锁死为具体的 Commit SHA
 env:

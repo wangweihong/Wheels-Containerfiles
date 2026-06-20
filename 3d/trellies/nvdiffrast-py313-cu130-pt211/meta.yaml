@@ -2,6 +2,7 @@ module: "nvdiffrast"
 variant: "standard" # 如果是特调版，可以写 "fix-headdim256"
 upstream:
   repo: "https://github.com/NVlabs/nvdiffrast.git"
+  description: "模块化可微渲染原语库，提供高质量光栅化与可微渲染"
   branch: "main"
   commit: "253ac4f" # 可以是 main/tags，但强烈建议在正式发布时锁死为具体的 Commit SHA
 env:
