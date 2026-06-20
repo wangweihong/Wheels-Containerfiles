@@ -1,0 +1,106 @@
+name: 🎯 Single Target Build & Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: "选择要执行的组件模块 (Component)"
+        required: true
+        default: "sageattention"
+        type: choice
+        options:
+          - cumesh
+          - flexGEMM
+          - o_voxel
+          - sageattention
+          - sageattn3
+          - spargeattn
+          - nvdiffrec
+          - nvdiffrast
+          - fastvideo-kernel
+          - xformers
+          - audiotools
+          - mmcv
+          - pytorch3d
+      environment:
+        description: "特定环境标签 (例如: py313-cu130-pt211)。输入 list 或留空可直接查询支持的版本列表。"
+        required: false
+        default: "list"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  inspect-and-build:
+    name: Target -> ${{ github.event.inputs.module }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. 拉取代码仓
+        uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+
+      - name: 2. 安装 yq 处理器
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
+
+      - name: 3. 🔍 动态扫描并输出该模块支持的版本列表
+        id: check-version
+        run: |
+          MODULE="${{ github.event.inputs.module }}"
+          echo "### 🔍 模块 \`${MODULE}\` 仓内已配置的环境矩阵明细" >> $GITHUB_STEP_SUMMARY
+          echo "| 环境变体标签 (Environment Tag) | Python | CUDA | PyTorch | 补丁变体说明 (Variant) |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- | :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+
+          # 自动寻找所有属于该模块的 meta.yaml 文件
+          # 假设你的目录结构形如: ./<任意路径>/<module_name>/<env_tag>/meta.yaml
+          FOUND_ANY=false
+          while IFS= read -r meta_path; do
+              [ -z "$meta_path" ] && continue
+              FOUND_ANY=true
+              
+              # 向上提取 env_tag 目录名
+              ENV_TAG=$(basename $(dirname "$meta_path"))
+              
+              # 解析 yaml 元数据用于看板展示
+              PY_VER=$(yq eval '.env.python' "$meta_path" 2>/dev/null || echo "N/A")
+              CU_VER=$(yq eval '.env.cuda' "$meta_path" 2>/dev/null || echo "N/A")
+              PT_VER=$(yq eval '.env.pytorch' "$meta_path" 2>/dev/null || echo "N/A")
+              VARIANT=$(yq eval '.variant' "$meta_path" 2>/dev/null || echo "standard")
+              
+              echo "| \`${ENV_TAG}\` | \`${PY_VER}\` | \`${CU_VER}\` | \`${PT_VER}\` | ${VARIANT} |" >> $GITHUB_STEP_SUMMARY
+          done < <(find . -type f -name "meta.yaml" | grep -E "/${MODULE}/" || true)
+
+          if [ "$FOUND_ANY" = false ]; then
+              echo "❌ 未找到该模块的任何 meta.yaml 配置文件，请检查目录命名是否匹配。" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 4. 清理磁盘空间 (仅在需要构建时执行)
+        if: ${{ github.event.inputs.environment != 'list' && github.event.inputs.environment != '' }}
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc "/usr/local/share/boost"
+          df -h
+
+      - name: 5. 设置 Docker Buildx 环境 (仅在需要构建时执行)
+        if: ${{ github.event.inputs.environment != 'list' && github.event.inputs.environment != '' }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: 6. 🎯 精准编译该模块的指定环境
+        if: ${{ github.event.inputs.environment != 'list' && github.event.inputs.environment != '' }}
+        run: |
+          # 根据你 Makefile 里的规则，组装成单点编译与采集目标 (例如: make build-m-sageattention@py313-cu130-pt211)
+          make build-m-${{ github.event.inputs.module }}@${{ github.event.inputs.environment }}
+          make collect-m-${{ github.event.inputs.module }}@${{ github.event.inputs.environment }}
+        env:
+          MAX_JOBS: 2
+          REGISTRY: docker.io
+          IMAGE_NAME: yanwk/comfyui-extras
+
+      - name: 7. 🚀 提取元数据并追加发布至 GitHub Release
+        if: ${{ github.event.inputs.environment != 'list' && github.event.inputs.environment != '' }}
+        run: |
+          make release-m-${{ github.event.inputs.module }}@${{ github.event.inputs.environment }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
