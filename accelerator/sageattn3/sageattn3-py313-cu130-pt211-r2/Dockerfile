@@ -66,7 +66,7 @@ RUN set -eu \
     && cd /WORK/wheels \
     && for f in *.whl; do \
          PREFIX=${f%%-cp313*} \
-         && mv "$f" "${PREFIX}+git@${BUILD_SHA}-py313-${CUDA_VERSION}-${TORCH_VERSION}-linux_x86_64.whl"; \
+         && mv "$f" "${PREFIX}+git.${BUILD_SHA}-py313.${CUDA_VERSION}.${TORCH_VERSION}-cp313-cp313-linux_x86_64.whl"; \
        done
 
 ################################################################################
