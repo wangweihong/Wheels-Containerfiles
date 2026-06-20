@@ -181,6 +181,10 @@ release-m-$(1)@$(2):
 	RELEASE_TAG="$(1)"; \
 	RELEASE_TITLE="$(1) Precompiled Wheels Repository"; \
 	NOTES_FILE="/tmp/release_notes_$(1).md"; \
+	if [ ! -d "$$$$TARGET_DIR" ] || [ -z "$$$$(ls $$$$TARGET_DIR/*.whl 2>/dev/null)" ]; then \
+		echo "  ⚠️ [SKIP] 目录 $$$$TARGET_DIR 不存在或没有任何 .whl 轮子文件！拒绝发布。"; \
+		exit 0; \
+	fi; \
 	\
 	if gh release view "$$$$RELEASE_TAG" --json body -q .body > $$$$NOTES_FILE 2>/dev/null; then \
 		echo "Fetched existing release notes from GitHub."; \
