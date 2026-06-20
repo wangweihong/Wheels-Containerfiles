@@ -39,7 +39,7 @@ endif
 # --- 1. 定义维度 ---
 
 # 所有组件
-ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattention sageattn3 spargeattn nvdiffrec nvdiffrast fastvideo-kernel xformers audiotools mmcv pytorch3d
+ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattention sageattn3 spargeatten nvdiffrec nvdiffrast fastvideo-kernel xformers audiotools mmcv pytorch3d
 # 所有支持的环境版本
 ALL_ENVS = py313-cu130-pt211 py312-cu128-pt29 py312-cu128-pt28  py313-cu130-pt211-r2 py313-cu130-pt211-fix-headdim256
 
@@ -163,17 +163,17 @@ release-m-$(1)@$(2):
 	fi; \
 	META_FILE="$$($(1)_$(2)_DIR)/meta.yaml"; \
 	VVARIANT="standard"; \
-	UPSTREAM_REPO=""; UPSTREAM_COMMIT=""; UPSTREAM_BRANCH=""; COMP_NOTE=""; \
+	UPSTREAM_REPO=""; UPSTREAM_COMMIT=""; UPSTREAM_BRANCH=""; COMP_NOTE="";UPSTREAM_REPO_SHORTCUT="GitHub"; \
 	if [ -f "$$$$META_FILE" ]; then \
 		echo "Found $$$$META_FILE, parsing metadata..."; \
 		UPSTREAM_REPO=$$$$(yq eval '.upstream.repo' $$$$META_FILE); \
+		if [ -n "$$$$UPSTREAM_REPO" ]; then \
+			UPSTREAM_REPO_SHORTCUT=$$$$(echo "$$$$UPSTREAM_REPO" | sed -E 's|https://github.com/||; s|\.git$$$$||'); \
+		fi; \
 		UPSTREAM_COMMIT=$$$$(yq eval '.upstream.commit' $$$$META_FILE); \
 		UPSTREAM_BRANCH=$$$$(yq eval '.upstream.branch' $$$$META_FILE); \
 		COMP_NOTE=$$$$(yq eval '.notes' $$$$META_FILE); \
-	fi; \
-	if [ -f "$$$$META_FILE" ]; then \
 		VARIANT=$$$$(yq -r '.variant' $$$$META_FILE 2>/dev/null); \
-		UPSTREAM_REPO=$$$$(yq -r '.upstream.repo' $$$$META_FILE 2>/dev/null); \
 	fi; \
 	RELEASE_TAG="$(1)"; \
 	RELEASE_TITLE="$(1) Precompiled Wheels Repository"; \
@@ -194,7 +194,7 @@ release-m-$(1)@$(2):
 	cd $$$$TARGET_DIR; \
 	for f in *.whl; do \
 		if ! grep -q "$$$$f" $$$$NOTES_FILE; then \
-			echo "| \`$$$$f\` | [GitHub]($$$$UPSTREAM_REPO) | \`$$$$UPSTREAM_BRANCH\` | [$$$$UPSTREAM_COMMIT]($$$$UPSTREAM_REPO/commit/$$$$UPSTREAM_COMMIT) | $$$$COMP_NOTE |" >> $$$$NOTES_FILE; \
+			echo "| \`$$$$f\` | [$$$$UPSTREAM_REPO_SHORTCUT]($$$$UPSTREAM_REPO) | \`$$$$UPSTREAM_BRANCH\` | [$$$$UPSTREAM_COMMIT]($$$$UPSTREAM_REPO/commit/$$$$UPSTREAM_COMMIT) | $$$$COMP_NOTE |" >> $$$$NOTES_FILE; \
 		fi; \
 	done; \
 	\
@@ -202,8 +202,16 @@ release-m-$(1)@$(2):
 	echo "UPLOADING WHEELS TO RELEASE TAG: $$$$RELEASE_TAG"; \
 	\
 	if gh release view "$$$$RELEASE_TAG" >/dev/null 2>&1; then \
-		echo "Release $$$$RELEASE_TAG exists. Appending assets and updating matrix table..."; \
-		gh release upload "$$$$RELEASE_TAG" $$$$TARGET_DIR/*.whl --clobber; \
+		echo "Release $$$$RELEASE_TAG exists. Checking for existing assets..."; \
+		EXISTING_ASSETS="$$$$(gh release view "$$$$RELEASE_TAG" --json assets -q '.assets[].name' 2>/dev/null)"; \
+		for f in *.whl; do \
+			if ! echo "$$$$EXISTING_ASSETS" | grep -Fqx "$$$$f"; then \
+				echo "Uploading new asset: $$$$f"; \
+				gh release upload "$$$$RELEASE_TAG" "$$$$f"; \
+			else \
+				echo "Asset $$$$f already exists, skipping."; \
+			fi; \
+		done; \
 		gh release edit "$$$$RELEASE_TAG" --notes-file $$$$NOTES_FILE; \
 	else \
 		echo "Release $$$$RELEASE_TAG not found. Creating a new one with dynamic matrix table..."; \
