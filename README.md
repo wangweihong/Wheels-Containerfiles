@@ -6,22 +6,33 @@
 
 ## 矩阵构建系统
 
-### 支持的组件
-- [3d trellies依赖组件](https://github.com/visualbruno/ComfyUI-Trellis2/tree/main/wheels/Linux/Torch270)
-    - **cumesh** 
-    - **flexGEMM** 
-    - **o_voxel**
-- **sageattn** 
-    - sageattn-2.2.0
-    - sageattn3-1.0.0
-    - spas_sage_attn-0.1.0
+矩阵由 **组件 × 环境** 笛卡尔积构成。所有组合目标名使用 `@` 作为分隔符，例如 `cumesh@py313-cu130-pt211`。
 
+### 支持的组件
+
+| 组件名称 | 根目录 | 说明 |
+|---------|--------|------|
+| cumesh | `3d/trellies/` | Trellis 相关 |
+| flexGEMM | `3d/trellies/` | Trellis 相关 |
+| o_voxel | `3d/trellies/` | Trellis 相关 |
+| nvdiffrec | `3d/trellies/` | 3D 重建 |
+| nvdiffrast | `3d/trellies/` | 3D 渲染 |
+| pytorch3d | `3d/lito/` | PyTorch3D |
+| sageattention | `accelerator/sageattention/` | SageAttention 2.x |
+| sageattn3 | `accelerator/sageattn3/` | SageAttention 3.x |
+| spargeattn | `accelerator/spargeattn/` | SpargeAttn |
+| xformers | `accelerator/xformers/` | xFormers |
+| fastvideo-kernel | `fastvideo/` | FastVideo 算子 |
+| audiotools | `tts/` | Descript AudioTools |
+| mmcv | `sdpose/` | MMCV |
 
 ### 支持的环境
 
 - **py313-cu130-pt211** - Python 3.13 + CUDA 13.0 + PyTorch 2.11
 - **py312-cu128-pt29** - Python 3.12 + CUDA 12.8 + PyTorch 2.9
 - **py312-cu128-pt28** - Python 3.12 + CUDA 12.8 + PyTorch 2.8
+- **py313-cu130-pt211-r2** - py313-cu130-pt211 的 r2 变体
+- **py313-cu130-pt211-fix-headdim256** - py313-cu130-pt211 的 fix-headdim256 变体
 
 
 ## Makefile 使用指南
@@ -30,9 +41,11 @@
 
 - **矩阵构建**：支持所有组件×环境的组合构建
 - **双标签构建**：每个镜像生成基础标签和时间戳标签
-- **批量操作**：支持按组件或环境批量构建
+- **批量操作**：支持按组件批量构建、采集、发布
 - **代理支持**：自动检测并使用系统代理设置
-- **Wheel采集**：从构建的镜像中提取wheel文件
+- **Wheel 采集**：从构建好的镜像中提取 wheel 文件
+- **一键发布**：将采集的 wheel 上传到 GitHub Release，并自动维护变更说明表格
+- **元数据驱动**：通过 `meta.yaml` 跟踪上游仓库、分支、提交与变体信息（依赖 `yq`）
 - **智能清理**：自动清理构建的镜像
 
 ### 命令示例
@@ -43,8 +56,8 @@
 # 查看帮助信息
 make help
 
-# 查看构建状态
-make status
+# 检查 yq 依赖（构建前会自动调用）
+make check-yq-dependency
 ```
 
 #### 构建命令
@@ -53,17 +66,14 @@ make status
 # 构建所有组件-环境组合
 make build-all
 
-# 构建特定环境的所有组件
-make build-env-py313-cu130-pt211
-
 # 构建特定组件的所有环境
 make build-comp-cumesh
 
 # 构建特定组件-环境组合
 make build-m-cumesh@py313-cu130-pt211
 
-# 构建特定组件单独的环境组合
-make build-c-sageattn@py313-cu130-pt211-fix-headdim256
+# 构建带变体的组件-环境组合
+make build-m-sageattention@py313-cu130-pt211-fix-headdim256
 ```
 
 #### 推送命令
@@ -76,23 +86,35 @@ make push-all
 make push-m-cumesh@py313-cu130-pt211
 ```
 
-#### 从以构建好的组件镜像提取Wheels
+#### 从已构建好的组件镜像提取 Wheels
 
 ```bash
-# 从所有镜像中采集wheel文件
+# 从所有镜像中采集 wheel 文件
 make collect-all
 
-# 从特定环境的所有组件中采集wheel文件
-make collect-env-py313-cu130-pt211
-
-# 从特定组件的所有环境中采集wheel文件
+# 从特定组件的所有环境中采集 wheel 文件
 make collect-comp-cumesh
 
-# 从特定组件-环境组合中采集wheel文件
+# 从特定组件-环境组合中采集 wheel 文件
 make collect-m-cumesh@py313-cu130-pt211
 
-# 特定组件-环境组合中采集wheel文件
-make build-c-sageattn@py313-cu130-pt211-fix-headdim256
+# 清理已采集的 wheel 文件
+make collect-clean
+```
+
+#### 发布命令
+
+将采集到的 wheel 上传到 GitHub Release，并自动维护变更说明表格（以组件名作为 Release Tag，支持多环境、多变体追加）。
+
+```bash
+# 发布所有组件
+make release-all
+
+# 发布特定组件的所有环境
+make release-comp-cumesh
+
+# 发布特定组件-环境组合
+make release-m-cumesh@py313-cu130-pt211
 ```
 
 #### 清理命令
@@ -110,18 +132,20 @@ make clean-m-cumesh@py313-cu130-pt211
 可以通过环境变量自定义构建参数：
 
 ```bash
-# 设置并行作业数（默认为1）
+# 设置并行作业数（默认为 1）
 export MAX_JOBS=4
 
-# 设置CUDA架构支持（默认为8.0;8.6;10.0）
-export TORCH_CUDA_ARCH_LIST='8.0;8.6;9.0;10.0'
+# 设置 CUDA 架构支持（默认为 8.0;8.6;10.0;12.0;12.0+PTX）
+export TORCH_CUDA_ARCH_LIST='8.0;8.6;10.0;12.0;12.0+PTX'
 
-# 使用私有注册表（默认为docker.io）
+# 使用私有注册表（默认为 docker.io）
 export REGISTRY=myregistry.example.com
 
 # 构建所有组件
 make build-all
 ```
+
+默认镜像名为 `yanwk/comfyui-extras`，wheel 输出目录为 `./_wheels/linux`。
 
 ### 代理支持
 
@@ -130,14 +154,47 @@ make build-all
 - `https_proxy` / `HTTPS_PROXY`
 - `no_proxy` / `NO_PROXY`
 
+### 元数据与 yq 依赖
+
+每个组件-环境目录可包含一个 `meta.yaml`，用于跟踪上游仓库、分支、提交、变体与说明。构建与发布时会通过 `yq` 解析该文件，将上游信息注入为 Docker 构建参数，并写入 Release 变更说明表格。
+
+```yaml
+module: "sageattention"
+variant: "standard"   # 变体，如 standard / r2 / fix-headdim256
+upstream:
+  repo: "https://github.com/thu-ml/SageAttention"
+  branch: "main"
+  commit: "d1a57a5"
+env:
+  python: "3.13"
+  cuda: "13.0"
+  pytorch: "2.11"
+```
+
+若未安装 `yq`，构建前会报错退出。安装方式：
+
+```bash
+# Linux (AMD64)
+sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
+# macOS
+brew install yq
+```
+
 ### 组件目录结构
+
+每个组件-环境组合对应一个独立目录，命名格式为 `<组件>-<环境>`，目录内包含 `Dockerfile` 与可选的 `meta.yaml`。
 
 | 组件名称 | 目录路径 |
 |---------|----------|
-| cumesh | `3d/trellies/cumesh-<环境>` |
-| flexGEMM | `3d/trellies/flexGEMM-<环境>` |
-| o_voxel | `3d/trellies/o_voxel-<环境>` |
-| sageattn | `accelerator/sageattn-<环境>` |
+| cumesh / flexGEMM / o_voxel / nvdiffrec / nvdiffrast | `3d/trellies/<组件>-<环境>` |
+| pytorch3d | `3d/lito/pytorch3d-<环境>` |
+| sageattention | `accelerator/sageattention/sageattention-<环境>` |
+| sageattn3 | `accelerator/sageattn3/sageattn3-<环境>` |
+| spargeattn | `accelerator/spargeattn/spargeattn-<环境>` |
+| xformers | `accelerator/xformers/xformers-<环境>` |
+| fastvideo-kernel | `fastvideo/fastvideo-kernel-<环境>` |
+| audiotools | `tts/audiotools-<环境>` |
+| mmcv | `sdpose/mmcv-<环境>` |
 
 ### 镜像标签策略
 
@@ -156,21 +213,23 @@ make build-all
 
 1. 在 `ALL_COMPONENTS` 变量中添加组件名称
 2. 在 `get_comp_root` 函数中添加组件的根目录映射
-3. 创建对应的目录结构和Dockerfile
+3. 创建对应的目录结构（`<根目录>/<组件>-<环境>/`）和 `Dockerfile`
+4. （可选）添加 `meta.yaml` 以支持上游元数据注入与发布
 
 ### 添加新环境
 
 要添加新的环境支持，需要：
 
 1. 在 `ALL_ENVS` 变量中添加环境名称
-2. 创建对应组件的环境目录和Dockerfile
+2. 创建对应组件的环境目录和 `Dockerfile`
 
 ### 构建参数说明
 
-- `MAX_JOBS`：控制并行编译作业数，设置为1可避免在资源受限环境（如GitHub CI）中崩溃
-- `TORCH_CUDA_ARCH_LIST`：指定支持的CUDA计算架构，必须设置以避免PyTorch编译错误
-- `WHEELS_HOST_DIR`：wheel文件的输出目录（默认为 `./wheels/linux`）
-- `CACHEBUST`：用于触发Docker重新构建git缓存的参数，默认值为1. 设置为其他值后会强制重新拉取代码进行构建，避免缓存导致代码过期问题
+- `MAX_JOBS`：控制并行编译作业数，设置为 1 可避免在资源受限环境（如 GitHub CI）中崩溃
+- `TORCH_CUDA_ARCH_LIST`：指定支持的 CUDA 计算架构，必须设置以避免 PyTorch 编译错误
+- `REGISTRY`：镜像仓库地址（默认为 `docker.io`）
+- `IMAGE_NAME`：镜像名称（默认为 `yanwk/comfyui-extras`）
+- `WHEELS_HOST_DIR`：wheel 文件的输出目录（默认为 `./_wheels/linux`）
 
 ## 故障排除
 
@@ -222,12 +281,15 @@ make build-comp-sageattn
 make collect-comp-sageattn
 ```
 
-### 构建特定环境的所有组件
+### 构建并发布特定组件
 
 ```bash
-# 构建py313-cu130-pt211环境的所有组件
-make build-env-py313-cu130-pt211
+# 构建 sageattention 的所有环境
+make build-comp-sageattention
 
-# 采集py313-cu130-pt211环境的所有wheel文件
-make collect-env-py313-cu130-pt211
+# 采集 sageattention 的所有 wheel 文件
+make collect-comp-sageattention
+
+# 发布 sageattention 到 GitHub Release
+make release-comp-sageattention
 ```
