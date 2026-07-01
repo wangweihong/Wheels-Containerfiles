@@ -32,6 +32,8 @@ ARG CUDA_VERSION="cu130"
 ARG TORCH_VERSION="pt211"
 ARG VIRIANT="standard"
 ARG PYTHON_VERSION="cp313"
+ARG CMAKE_ARGS="-DGGML_CUDA=on"
+
 # docker build cache id, 避免缓存冲突
 ARG CACHE_KEY="llama-cpp-python-${PYTHON_VERSION}-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
 RUN echo "===> [MATRIX CHECK] Repo: ${UPSTREAM_REPO} | Branch: ${UPSTREAM_BRANCH} | COMMIT: ${UPSTREAM_COMMIT} | CUDA: ${CUDA_VERSION}"
@@ -50,7 +52,7 @@ RUN git checkout ${UPSTREAM_COMMIT}
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,id=${CACHE_KEY}-build,target=/WORK/CuMesh/build \
     --mount=type=cache,id=${CACHE_KEY}-dist,target=/WORK/CuMesh/dist \
-    python3.13 -m pip wheel . --no-deps --wheel-dir /WORK/wheels 
+    ${CMAKE_ARGS} python3.13 -m pip wheel . --no-deps --wheel-dir /WORK/wheels 
 
 RUN set -eu \
     && BUILD_SHA=$(git rev-parse --short=7 HEAD) \
