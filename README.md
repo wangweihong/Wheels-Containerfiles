@@ -313,3 +313,8 @@ make collect-comp-sageattention
 # 发布 sageattention 到 GitHub Release
 make release-comp-sageattention
 ```
+
+# meta更新指令
+```  
+遍历所有的meta.yaml文件，然后读取meta.yaml中upstream repo,访问并获取对应的仓库获取对应的功能简单描述，并且更新到meta.yaml，upstream添加一个description字段描述仓库信息,并且更新README.md文件,
+```

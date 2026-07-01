@@ -56,6 +56,7 @@ $(strip \
 	$(if $(filter audiotools,$(1)),tts/,\
 	$(if $(filter mmcv,$(1)),sdpose/,\
 	$(if $(filter pytorch3d,$(1)),3d/lito/,\
+	$(if $(filter llama-cpp-python,$(1)),llm/llama-cpp-python/,\
     ./))))))))) \
 )
 endef
