@@ -22,6 +22,7 @@ on:
           - audiotools
           - mmcv
           - pytorch3d
+          - llama-cpp-python
       environment:
         description: "特定环境标签 (例如: py313-cu130-pt211)。输入 list 或留空可直接查询支持的版本列表。"
         required: false
