@@ -1,6 +1,6 @@
 ################################################################################
-# Dockerfile that builds 'yanwk/comfyui-extras:cumesh-py313-cu130-pt211'.
-# Used for compiling CumMesh.
+# Dockerfile that builds 'yanwk/comfyui-extras:llama-cpp-python-py313-cu130-pt211'.
+# Used for compiling llama-cpp-python.
 ################################################################################
 
 ARG REGISTRY=docker.io
@@ -33,30 +33,24 @@ ARG TORCH_VERSION="pt211"
 ARG VIRIANT="standard"
 ARG PYTHON_VERSION="cp313"
 # docker build cache id, 避免缓存冲突
-ARG CACHE_KEY="cumesh-${PYTHON_VERSION}-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
+ARG CACHE_KEY="llama-cpp-python-${PYTHON_VERSION}-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
 RUN echo "===> [MATRIX CHECK] Repo: ${UPSTREAM_REPO} | Branch: ${UPSTREAM_BRANCH} | COMMIT: ${UPSTREAM_COMMIT} | CUDA: ${CUDA_VERSION}"
 
 RUN ${HTTPS_PROXY:+git config --global https.proxy $HTTPS_PROXY} && \ 
     ${HTTP_PROXY:+git config --global http.proxy $HTTP_PROXY} && \
     git clone --single-branch --branch ${UPSTREAM_BRANCH} --recurse-submodules\
     ${UPSTREAM_REPO} \
-/WORK/CuMesh
+/WORK/llama-cpp-python
 
-WORKDIR /WORK/CuMesh
+WORKDIR /WORK/llama-cpp-python
 
 # 切换到 meta.yaml 指定的精准分支、Tag 或 Commit SHA
 RUN git checkout ${UPSTREAM_COMMIT}
 
-# https://github.com/visualbruno/CuMesh/issues/1
-RUN cd third_party/cubvh \
-    && mkdir third_party \
-    && cd third_party \
-    && ln -s ../../../ eigen
-
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,id=${CACHE_KEY}-build,target=/WORK/CuMesh/build \
     --mount=type=cache,id=${CACHE_KEY}-dist,target=/WORK/CuMesh/dist \
-    python3.13 setup.py bdist_wheel -d /WORK/wheels 
+    python3.13 -m pip wheel . --no-deps --wheel-dir /WORK/wheels 
 
 RUN set -eu \
     && BUILD_SHA=$(git rev-parse --short=7 HEAD) \

@@ -39,7 +39,7 @@ endif
 # --- 1. 定义维度 ---
 
 # 所有组件
-ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattention sageattn3 spargeatten nvdiffrec nvdiffrast fastvideo-kernel xformers audiotools mmcv pytorch3d
+ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattention sageattn3 spargeatten nvdiffrec nvdiffrast fastvideo-kernel xformers audiotools mmcv pytorch3d llama-cpp-python
 # 所有支持的环境版本
 ALL_ENVS = py313-cu130-pt211 py312-cu128-pt29 py312-cu128-pt28  py313-cu130-pt211-r2 py313-cu130-pt211-fix-headdim256
 
@@ -57,7 +57,7 @@ $(strip \
 	$(if $(filter mmcv,$(1)),sdpose/,\
 	$(if $(filter pytorch3d,$(1)),3d/lito/,\
 	$(if $(filter llama-cpp-python,$(1)),llm/llama-cpp-python/,\
-    ./))))))))) \
+    ./)))))))))) \
 )
 endef
 
