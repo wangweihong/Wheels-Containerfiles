@@ -23,6 +23,7 @@ on:
           - audiotools
           - mmcv
           - pytorch3d
+          - llama-cpp-python
 
 # 核心安全权限：必须赋予工作流对 Release 写入和创建的权限
 permissions:
