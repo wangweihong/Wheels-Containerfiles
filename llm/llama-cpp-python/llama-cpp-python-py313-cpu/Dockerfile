@@ -28,13 +28,11 @@ ARG TORCH_CUDA_ARCH_LIST='8.0;8.6;10.0;12.0;'
 ARG UPSTREAM_REPO="https://github.com/JamePeng/llama-cpp-python"
 ARG UPSTREAM_BRANCH="main"
 ARG UPSTREAM_COMMIT="6f21d4d"
-ARG CUDA_VERSION="cu130"
-ARG TORCH_VERSION="pt211"
-ARG VIRIANT="cuda"
+ARG VIRIANT="standard"
 ARG PYTHON_VERSION="cp313"
 # docker build cache id, 避免缓存冲突
-ARG CACHE_KEY="llama-cpp-python-${PYTHON_VERSION}-${CUDA_VERSION}-${TORCH_VERSION}-${VIRIANT}"
-RUN echo "===> [MATRIX CHECK] Repo: ${UPSTREAM_REPO} | Branch: ${UPSTREAM_BRANCH} | COMMIT: ${UPSTREAM_COMMIT} | CUDA: ${CUDA_VERSION}"
+ARG CACHE_KEY="llama-cpp-python-${PYTHON_VERSION}-${VIRIANT}"
+RUN echo "===> [MATRIX CHECK] Repo: ${UPSTREAM_REPO} | Branch: ${UPSTREAM_BRANCH} | COMMIT: ${UPSTREAM_COMMIT}"
 
 RUN ${HTTPS_PROXY:+git config --global https.proxy $HTTPS_PROXY} && \ 
     ${HTTP_PROXY:+git config --global http.proxy $HTTP_PROXY} && \
@@ -48,16 +46,16 @@ WORKDIR /WORK/llama-cpp-python
 RUN git checkout ${UPSTREAM_COMMIT}
 
 RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=cache,id=${CACHE_KEY}-build,target=/WORK/CuMesh/build \
-    --mount=type=cache,id=${CACHE_KEY}-dist,target=/WORK/CuMesh/dist \
-    CMAKE_ARGS="-DGGML_CUDA=on" python3.13 -m pip wheel . --no-deps --wheel-dir /WORK/wheels 
+    --mount=type=cache,id=${CACHE_KEY}-build,target=/WORK/llama-cpp-python/build \
+    --mount=type=cache,id=${CACHE_KEY}-dist,target=/WORK/llama-cpp-python/dist \
+    python3.13 -m pip wheel . --no-deps --wheel-dir /WORK/wheels 
 
 RUN set -eu \
     && BUILD_SHA=$(git rev-parse --short=7 HEAD) \
     && cd /WORK/wheels \
     && for f in *.whl; do \
          PREFIX=${f%%-cp313*} \
-         && mv "$f" "${PREFIX}+git.${BUILD_SHA}.${CUDA_VERSION}.${TORCH_VERSION}-${PYTHON_VERSION}-${PYTHON_VERSION}-${VIRIANT}-linux_x86_64.whl"; \
+         && mv "$f" "${PREFIX}+git.${BUILD_SHA}.cpu-${PYTHON_VERSION}-${PYTHON_VERSION}-linux_x86_64.whl"; \
        done
 
 
