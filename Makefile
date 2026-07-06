@@ -41,7 +41,7 @@ endif
 # 所有组件
 ALL_COMPONENTS = cumesh flexGEMM o_voxel sageattention sageattn3 spargeatten nvdiffrec nvdiffrast fastvideo-kernel xformers audiotools mmcv pytorch3d llama-cpp-python
 # 所有支持的环境版本
-ALL_ENVS = py313-cu130-pt211 py312-cu128-pt29 py312-cu128-pt28  py313-cu130-pt211-r2 py313-cu130-pt211-fix-headdim256 py313-cu130-pt211-cuda
+ALL_ENVS = py313-cu130-pt211 py312-cu128-pt29 py312-cu128-pt28  py313-cu130-pt211-r2 py313-cu130-pt211-fix-headdim256  py313-cpu
 
 # 自动推导组件的根目录 (根据组件名返回其父路径)
 # 格式: $(if $(filter 组件名,$(1)),路径)
