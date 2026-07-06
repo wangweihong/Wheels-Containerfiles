@@ -52,6 +52,7 @@
 - **py312-cu128-pt28** - Python 3.12 + CUDA 12.8 + PyTorch 2.8
 - **py313-cu130-pt211-r2** - py313-cu130-pt211 的 r2 变体
 - **py313-cu130-pt211-fix-headdim256** - py313-cu130-pt211 的 fix-headdim256 变体
+- **py313-cu130-pt211-cuda** - py313-cu130-pt211 的 cuda支持    
 
 
 ## Makefile 使用指南
