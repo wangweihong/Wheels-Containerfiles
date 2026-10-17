@@ -283,3 +283,14 @@ collect-clean:
 
 # 批量清理
 clean-all: $(addprefix clean-m-,$(MATRIX_COMBO))
+
+# Official 3DGS runtime distributions (wheel + archive + RPM), separate from wheel matrix.
+THREE_DGS_OUTPUT ?= $(CURDIR)/_artifacts/3dgs-v1
+THREE_DGS_RELEASE_TARGET ?=
+.PHONY: prepare-3dgs verify-3dgs release-3dgs
+prepare-3dgs:
+	python3 3d/3dgs/release.py prepare --output "$(THREE_DGS_OUTPUT)"
+verify-3dgs:
+	python3 3d/3dgs/release.py verify --output "$(THREE_DGS_OUTPUT)"
+release-3dgs:
+	python3 3d/3dgs/release.py release --output "$(THREE_DGS_OUTPUT)" --target "$(THREE_DGS_RELEASE_TARGET)"

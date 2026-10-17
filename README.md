@@ -319,3 +319,6 @@ make release-comp-sageattention
 ```  
 遍历所有的meta.yaml文件，然后读取meta.yaml中upstream repo,访问并获取对应的仓库获取对应的功能简单描述，并且更新到meta.yaml，upstream添加一个description字段描述仓库信息,并且更新README.md文件,
 ```
+## 3DGS官方运行依赖
+
+[3DGS发行流程](3d/3dgs/README.md) 独立处理PyCOLMAP wheel、Brush程序归档和Vulkan Loader RPM，不重新编译，也不改变现有wheel矩阵。使用 `make prepare-3dgs verify-3dgs` 准备校验材料，`make release-3dgs THREE_DGS_RELEASE_TARGET=<已发布提交SHA>` 发布固定 `3dgs-v1` Release。

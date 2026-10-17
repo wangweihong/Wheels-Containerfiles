@@ -1,0 +1,18 @@
+name: Prepare and release 3DGS runtime dependencies
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test release preparation
+        run: python3 -m unittest discover -s 3d/3dgs/tests -v
+      - name: Download and verify original upstream distributions
+        run: make prepare-3dgs verify-3dgs
+      - name: Publish immutable binary assets
+        run: make release-3dgs THREE_DGS_RELEASE_TARGET="$GITHUB_SHA"
+        env:
+          GH_TOKEN: ${{ github.token }}

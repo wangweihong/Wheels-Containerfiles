@@ -1,2 +1,4 @@
 wheels/linux/*
 _wheels/linux/*
+_artifacts/
+__pycache__/
