@@ -23,6 +23,7 @@
 | spargeattn | `accelerator/spargeattn/` | SpargeAttn |
 | xformers | `accelerator/xformers/` | xFormers |
 | fastvideo-kernel | `fastvideo/` | FastVideo 算子 |
+| flashvsr-attn | `accelerator/flashvsr-attn/` | FlashVSR+ Triton 稀疏注意力源码与 wheel |
 | audiotools | `tts/` | Descript AudioTools |
 | mmcv | `sdpose/` | MMCV |
 
@@ -40,6 +41,7 @@
 | sageattn3 | [thu-ml/SageAttention](https://github.com/thu-ml/SageAttention) | 即插即用的高效精确注意力算子，通过 8-bit/4-bit 量化实现接近无损的推理加速 |
 | spargeattn | [thu-ml/SpargeAttn](https://github.com/thu-ml/SpargeAttn) | 无需训练的稀疏注意力算子，通过两阶段在线过滤器与 8-bit 量化加速任意模型推理，几乎不损失精度 |
 | fastvideo-kernel | [hao-ai-lab/FastVideo](https://github.com/hao-ai-lab/FastVideo) | 用于加速视频扩散模型推理与后训练的统一框架 |
+| flashvsr-attn | [smthemex/ComfyUI_FlashVSR](https://github.com/smthemex/ComfyUI_FlashVSR) | FlashVSR+ 流式视频超分的 Triton 稀疏注意力算子；[源码与构建发布说明](accelerator/flashvsr-attn/README.md) |
 | audiotools | [descriptinc/audiotools](https://github.com/descriptinc/audiotools) | 面向音频信号处理的全方位工具库，提供可微分的音频变换、特征提取与数据增强 |
 | mmcv | [open-mmlab/mmcv](https://github.com/open-mmlab/mmcv) | OpenMMLab 系列计算机视觉项目的基础库，提供自定义 CUDA 算子、配置系统与通用工具 |
 
@@ -214,6 +216,7 @@ brew install yq
 | spargeattn | `accelerator/spargeattn/spargeattn-<环境>` |
 | xformers | `accelerator/xformers/xformers-<环境>` |
 | fastvideo-kernel | `fastvideo/fastvideo-kernel-<环境>` |
+| flashvsr-attn | `accelerator/flashvsr-attn/flashvsr-attn-<环境>` |
 | audiotools | `tts/audiotools-<环境>` |
 | mmcv | `sdpose/mmcv-<环境>` |
 

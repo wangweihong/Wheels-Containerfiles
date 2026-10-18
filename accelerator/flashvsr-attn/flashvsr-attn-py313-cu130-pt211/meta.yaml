@@ -1,0 +1,12 @@
+module: "flashvsr-attn"
+variant: "standard"
+upstream:
+  repo: "https://github.com/smthemex/ComfyUI_FlashVSR"
+  description: "FlashVSR+ 流式视频超分的 Triton 稀疏注意力算子"
+  branch: "main"
+  commit: "153cf03343a116c85aee40d291125921cc33935a"
+env:
+  python: "3.13"
+  cuda: "13.0"
+  pytorch: "2.11"
+notes: "flashvsr-attn 0.1.0; vendored operators/flashvsr_attn; py3-none-any; Triton JIT at runtime"
